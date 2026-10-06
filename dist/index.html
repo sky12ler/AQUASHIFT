@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="AquaCompute interactive water-aware workload scheduler and scenario simulator.">
+  <meta name="theme-color" content="#07111f">
+  <title>AquaCompute Command Center</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307111f'/%3E%3Cpath d='M32 8C20 24 14 31 14 41a18 18 0 0036 0c0-10-6-17-18-33z' fill='%2324d6c7'/%3E%3Cpath d='M21 42h7l4-11 6 18 4-7h6' fill='none' stroke='%2307111f' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #07111f;
+      --panel: #0d1c2d;
+      --panel-2: #11243a;
+      --line: #203a53;
+      --muted: #8fa8bc;
+      --text: #eef8fb;
+      --aqua: #24d6c7;
+      --blue: #55a9ff;
+      --amber: #f5ba45;
+      --orange: #ff7a45;
+      --red: #ff5d6c;
+      --green: #68d391;
+      --decision: #24d6c7;
+      --decision-rgb: 36, 214, 199;
+      --shadow: 0 18px 60px rgba(0,0,0,.28);
+      --radius: 14px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--ink);
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.45;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .24;
+      background-image: linear-gradient(rgba(85,169,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(85,169,255,.06) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: linear-gradient(to bottom, #000, transparent 78%);
+    }
+    button, input, select { font: inherit; }
+    button, select, input[type="range"] { cursor: pointer; }
+    button:focus-visible, select:focus-visible, input:focus-visible {
+      outline: 3px solid rgba(85,169,255,.55);
+      outline-offset: 2px;
+    }
+    .shell { width: min(1540px, calc(100% - 32px)); margin: 0 auto; padding: 20px 0 44px; position: relative; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brandmark { width: 42px; height: 42px; display: grid; place-items: center; color: var(--aqua); border: 1px solid var(--line); background: var(--panel); }
+    .brandmark svg { width: 25px; }
+    h1 { font-size: clamp(1.1rem, 2vw, 1.45rem); margin: 0; letter-spacing: -.02em; }
+    .eyebrow { color: var(--aqua); text-transform: uppercase; letter-spacing: .13em; font-size: .72rem; font-weight: 800; margin: 0 0 2px; }
+    .system-status { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: .82rem; }
+    .pulse { width: 9px; height: 9px; background: var(--aqua); border-radius: 50%; box-shadow: 0 0 0 5px rgba(36,214,199,.09); }
+    .scenario-bar { border: 1px solid var(--line); background: rgba(13,28,45,.88); box-shadow: var(--shadow); padding: 14px; margin-bottom: 14px; }
+    .bar-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+    .bar-head h2 { margin: 0; font-size: .9rem; letter-spacing: .05em; text-transform: uppercase; }
+    .clock { color: var(--muted); font-variant-numeric: tabular-nums; font-size: .82rem; }
+    .scenario-list { display: grid; grid-template-columns: repeat(6, minmax(145px, 1fr)); gap: 8px; }
+    .scenario {
+      min-height: 62px;
+      color: var(--text);
+      background: #0a1726;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 10px 12px;
+      text-align: left;
+      transition: border-color .18s, background .18s, transform .18s;
+    }
+    .scenario:hover { transform: translateY(-1px); border-color: #416483; }
+    .scenario.active { border-color: var(--aqua); background: rgba(36,214,199,.08); box-shadow: inset 0 -2px var(--aqua); }
+    .scenario b { display: block; font-size: .84rem; }
+    .scenario span { color: var(--muted); font-size: .72rem; }
+    .dashboard { display: grid; grid-template-columns: minmax(270px, .78fr) minmax(500px, 1.55fr) minmax(300px, .9fr); gap: 14px; align-items: start; }
+    .stack { display: grid; gap: 14px; }
+    .panel { border: 1px solid var(--line); background: rgba(13,28,45,.94); box-shadow: 0 12px 34px rgba(0,0,0,.18); }
+    .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 15px 16px 12px; border-bottom: 1px solid var(--line); }
+    .panel-head h2, .panel-head h3 { margin: 0; font-size: .88rem; text-transform: uppercase; letter-spacing: .08em; }
+    .panel-head p { margin: 4px 0 0; color: var(--muted); font-size: .75rem; }
+    .panel-body { padding: 16px; }
+    .control { margin-bottom: 17px; }
+    .control:last-child { margin-bottom: 0; }
+    .control-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; font-size: .78rem; color: #c7d8e4; }
+    .control-label output { color: var(--text); font-weight: 750; font-variant-numeric: tabular-nums; }
+    input[type="range"] { width: 100%; accent-color: var(--aqua); }
+    .range-scale { display: flex; justify-content: space-between; color: #6f8ba1; font-size: .67rem; margin-top: 2px; }
+    .select-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    label.field { display: grid; gap: 6px; color: var(--muted); font-size: .72rem; }
+    select { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; color: var(--text); background: #081522; font-size: .8rem; }
+    .run-button { width: 100%; margin-top: 16px; border: 0; background: var(--aqua); color: #041514; font-weight: 850; padding: 12px; border-radius: 8px; transition: filter .2s, transform .2s; }
+    .run-button:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .decision-hero { position: relative; overflow: hidden; min-height: 245px; background: #0d1c2d; }
+    .decision-hero::after { content: ""; position: absolute; inset: auto -10% -70% 34%; height: 250px; border: 46px solid rgba(var(--decision-rgb),.06); border-radius: 50%; pointer-events: none; }
+    .decision-top { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 20px 0; }
+    .decision-kicker { color: var(--muted); text-transform: uppercase; letter-spacing: .12em; font-size: .72rem; font-weight: 800; }
+    .risk-index { text-align: right; }
+    .risk-index b { display: block; font-size: 1.25rem; line-height: 1; color: var(--decision); }
+    .risk-index span { color: var(--muted); font-size: .68rem; text-transform: uppercase; }
+    .decision-main { display: grid; grid-template-columns: 96px 1fr; gap: 18px; align-items: center; padding: 12px 20px 16px; }
+    .decision-icon { width: 88px; height: 88px; display: grid; place-items: center; border: 1px solid rgba(var(--decision-rgb),.55); background: rgba(var(--decision-rgb),.08); color: var(--decision); }
+    .decision-icon svg { width: 42px; height: 42px; }
+    .decision-copy h2 { margin: 0; color: var(--decision); font-size: clamp(2rem, 4vw, 3.7rem); line-height: .95; letter-spacing: -.055em; text-transform: uppercase; }
+    .decision-copy p { margin: 10px 0 0; max-width: 640px; color: #c4d7e4; }
+    .decision-meta { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 20px 18px; }
+    .chip { border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; color: var(--muted); background: #091624; font-size: .72rem; }
+    .chip strong { color: var(--text); }
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); }
+    .metric { padding: 13px 14px; border-right: 1px solid var(--line); min-width: 0; }
+    .metric:last-child { border-right: 0; }
+    .metric span { color: var(--muted); font-size: .68rem; display: block; text-transform: uppercase; letter-spacing: .05em; }
+    .metric b { display: block; margin-top: 4px; font-size: 1.03rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .metric small { font-size: .66rem; color: #718da2; }
+    .forecast-wrap { padding: 12px 15px 8px; }
+    #forecast { width: 100%; height: 210px; display: block; overflow: visible; }
+    .chart-legend { display: flex; gap: 16px; align-items: center; color: var(--muted); font-size: .7rem; padding: 0 16px 14px; }
+    .legend-key { display: inline-flex; gap: 6px; align-items: center; }
+    .legend-line { width: 17px; height: 3px; background: var(--aqua); }
+    .legend-line.capacity { background: var(--blue); }
+    .legend-block { width: 8px; height: 8px; background: rgba(245,186,69,.55); }
+    .telemetry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sensor { border: 1px solid var(--line); padding: 11px; background: #091624; min-width: 0; }
+    .sensor .id { color: var(--muted); font-size: .67rem; text-transform: uppercase; letter-spacing: .06em; }
+    .sensor b { display: block; font-size: 1rem; margin-top: 4px; font-variant-numeric: tabular-nums; }
+    .sensor small { color: #6f8ba1; font-size: .67rem; }
+    .source-mix { margin-top: 14px; }
+    .source-line { display: flex; justify-content: space-between; font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+    .mixbar { height: 12px; display: flex; overflow: hidden; border: 1px solid var(--line); background: #07111f; }
+    .mix-reclaimed { background: var(--aqua); }
+    .mix-potable { background: var(--blue); }
+    .mix-ground { background: var(--amber); }
+    .mixlabels { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 8px; font-size: .67rem; color: var(--muted); }
+    .dot { width: 7px; height: 7px; display: inline-block; margin-right: 4px; border-radius: 50%; }
+    .rule-list { list-style: none; margin: 0; padding: 0; }
+    .rule-list li { display: grid; grid-template-columns: 26px 1fr; gap: 9px; align-items: start; padding: 10px 0; border-bottom: 1px solid rgba(32,58,83,.75); }
+    .rule-list li:last-child { border-bottom: 0; }
+    .rule-state { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid var(--line); color: var(--muted); font-size: .7rem; }
+    .rule-state.pass { color: var(--aqua); border-color: rgba(36,214,199,.45); }
+    .rule-state.fail { color: var(--red); border-color: rgba(255,93,108,.45); }
+    .rule-state.warn { color: var(--amber); border-color: rgba(245,186,69,.45); }
+    .rule-list b { display: block; font-size: .77rem; }
+    .rule-list span { display: block; margin-top: 2px; color: var(--muted); font-size: .7rem; }
+    .site-compare { display: grid; gap: 9px; }
+    .site-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 11px; border: 1px solid var(--line); background: #091624; }
+    .site-row.selected { border-color: var(--decision); }
+    .site-row b { font-size: .8rem; }
+    .site-row span { display: block; color: var(--muted); font-size: .67rem; }
+    .site-score { text-align: right; font-weight: 800; color: var(--aqua); }
+    .loop-panel { margin-top: 14px; }
+    .loop { display: grid; grid-template-columns: repeat(7, 1fr); }
+    .loop-step { position: relative; padding: 14px 12px; min-height: 88px; border-right: 1px solid var(--line); }
+    .loop-step:last-child { border-right: 0; }
+    .loop-step::after { content: ">"; position: absolute; right: -5px; top: 34px; z-index: 2; color: #496a83; background: var(--panel); }
+    .loop-step:last-child::after { display: none; }
+    .loop-step .num { color: var(--aqua); font-size: .7rem; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .loop-step b { display: block; margin-top: 5px; font-size: .75rem; }
+    .loop-step span { display: block; margin-top: 3px; color: var(--muted); font-size: .65rem; }
+    .loop-step.active { background: rgba(var(--decision-rgb),.06); box-shadow: inset 0 -2px var(--decision); }
+    .footer-note { display: flex; justify-content: space-between; gap: 18px; color: #6f8ba1; font-size: .7rem; margin-top: 12px; }
+    .flash { animation: flash .42s ease; }
+    @keyframes flash { 0% { opacity: .45; transform: translateY(4px); } 100% { opacity: 1; transform: none; } }
+    @media (max-width: 1180px) {
+      .dashboard { grid-template-columns: 290px 1fr; }
+      .right-stack { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
+      .scenario-list { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 780px) {
+      .shell { width: min(100% - 20px, 680px); padding-top: 12px; }
+      .topbar { align-items: flex-start; }
+      .system-status { display: none; }
+      .scenario-list { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 3px; }
+      .scenario { flex: 0 0 155px; scroll-snap-align: start; }
+      .dashboard { grid-template-columns: 1fr; }
+      .right-stack { grid-column: auto; grid-template-columns: 1fr; }
+      .decision-main { grid-template-columns: 68px 1fr; gap: 12px; }
+      .decision-icon { width: 64px; height: 64px; }
+      .decision-icon svg { width: 32px; }
+      .metrics { grid-template-columns: 1fr 1fr; }
+      .metric:nth-child(2) { border-right: 0; }
+      .metric:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+      .loop { grid-template-columns: 1fr 1fr; }
+      .loop-step { border-bottom: 1px solid var(--line); }
+      .loop-step::after { display: none; }
+      .footer-note { display: block; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brandmark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none"><path d="M16 3C10 11 6 15 6 21a10 10 0 0 0 20 0c0-6-4-10-10-18Z" stroke="currentColor" stroke-width="2"/><path d="M9 21h4l2-6 4 10 2-4h3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div><p class="eyebrow">Water-aware operations</p><h1>AquaCompute Command Center</h1></div>
+      </div>
+      <div class="system-status"><i class="pulse"></i><span>24 sensors online · Forecast refreshed <b id="refresh-age">just now</b></span></div>
+    </header>
+
+    <section class="scenario-bar" aria-labelledby="scenario-title">
+      <div class="bar-head"><h2 id="scenario-title">Scenario simulator</h2><span class="clock" id="clock">KUL · 16:20 MYT</span></div>
+      <div class="scenario-list" id="scenario-list"></div>
+    </section>
+
+    <div class="dashboard">
+      <aside class="stack">
+        <section class="panel" aria-labelledby="inputs-title">
+          <div class="panel-head"><div><h2 id="inputs-title">Live conditions</h2><p>Adjust inputs to recalculate</p></div><span class="chip">LIVE</span></div>
+          <div class="panel-body">
+            <div class="control">
+              <div class="control-label"><label for="temperature">Ambient temperature</label><output id="temperature-out">31°C</output></div>
+              <input id="temperature" type="range" min="24" max="44" value="31" step="1"><div class="range-scale"><span>24°C</span><span>44°C</span></div>
+            </div>
+            <div class="control">
+              <div class="control-label"><label for="tank">Makeup tank level</label><output id="tank-out">72%</output></div>
+              <input id="tank" type="range" min="10" max="100" value="72" step="1"><div class="range-scale"><span>Critical</span><span>Full</span></div>
+            </div>
+            <div class="control">
+              <div class="control-label"><label for="reclaimed">Reclaimed supply</label><output id="reclaimed-out">68%</output></div>
+              <input id="reclaimed" type="range" min="0" max="100" value="68" step="1"><div class="range-scale"><span>Potable-heavy</span><span>Reuse-first</span></div>
+            </div>
+            <div class="control">
+              <div class="control-label"><label for="makeup">Observed makeup flow</label><output id="makeup-out">5,860 L/h</output></div>
+              <input id="makeup" type="range" min="3800" max="9000" value="5860" step="20"><div class="range-scale"><span>3.8k</span><span>9.0k L/h</span></div>
+            </div>
+            <div class="select-row">
+              <label class="field">Community status<select id="community"><option value="normal">Normal</option><option value="watch">Watch</option><option value="restriction">Restriction</option><option value="emergency">Emergency</option></select></label>
+              <label class="field">Leak signal<select id="leak"><option value="none">None</option><option value="watch">Watch</option><option value="high">High</option></select></label>
+            </div>
+            <button class="run-button" id="run-model" type="button">Run scheduler model</button>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="telemetry-title">
+          <div class="panel-head"><div><h2 id="telemetry-title">Physical telemetry</h2><p>IoT edge gateway · Site JHR-01</p></div></div>
+          <div class="panel-body">
+            <div class="telemetry-grid">
+              <div class="sensor"><span class="id">FM-MU · flow</span><b id="tel-makeup">5,860 L/h</b><small>Makeup water</small></div>
+              <div class="sensor"><span class="id">LT-01 · level</span><b id="tel-tank">72%</b><small>Tank reserve</small></div>
+              <div class="sensor"><span class="id">EC-CT · quality</span><b id="tel-tds">1,420 ppm</b><small>Cooling basin TDS</small></div>
+              <div class="sensor"><span class="id">PS-COND · pressure</span><b id="tel-pressure">3.8 bar</b><small>Condenser loop</small></div>
+            </div>
+            <div class="source-mix">
+              <div class="source-line"><span>Water source mix</span><strong id="reuse-label">68% reclaimed</strong></div>
+              <div class="mixbar" aria-label="Water source mix"><i class="mix-reclaimed" id="mix-reclaimed"></i><i class="mix-potable" id="mix-potable"></i><i class="mix-ground" id="mix-ground"></i></div>
+              <div class="mixlabels"><span><i class="dot" style="background:var(--aqua)"></i>Reclaimed</span><span><i class="dot" style="background:var(--blue)"></i>Potable</span><span><i class="dot" style="background:var(--amber)"></i>Groundwater</span></div>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="stack">
+        <article class="panel decision-hero" id="decision-card" aria-live="polite">
+          <div class="decision-top"><span class="decision-kicker">Scheduler recommendation</span><div class="risk-index"><b id="risk-score">18</b><span>Water risk / 100</span></div></div>
+          <div class="decision-main"><div class="decision-icon" id="decision-icon" aria-hidden="true"></div><div class="decision-copy"><h2 id="decision-title">Run now</h2><p id="decision-reason">Water and GPU capacity remain safe through the full job window.</p></div></div>
+          <div class="decision-meta"><span class="chip">Job <strong id="job-id">TRN-4812</strong></span><span class="chip">Start <strong id="start-time">16:30</strong></span><span class="chip">Finish <strong id="finish-time">19:30</strong></span><span class="chip">Confidence <strong id="confidence">94%</strong></span></div>
+          <div class="metrics">
+            <div class="metric"><span>Predicted demand</span><b id="demand-value">5,980 L/h</b><small>during workload</small></div>
+            <div class="metric"><span>Safe capacity</span><b id="capacity-value">7,450 L/h</b><small>policy-adjusted</small></div>
+            <div class="metric"><span>Water balance</span><b id="balance-value">+1,470 L/h</b><small>supply − demand</small></div>
+            <div class="metric"><span>Unaccounted loss</span><b id="loss-value">0 L/h</b><small>actual − expected</small></div>
+          </div>
+        </article>
+
+        <section class="panel" aria-labelledby="forecast-title">
+          <div class="panel-head"><div><h2 id="forecast-title">12-hour water forecast</h2><p>Demand, safe operating capacity and scheduled compute window</p></div><span class="chip" id="forecast-status">NO DEFICIT</span></div>
+          <div class="forecast-wrap"><svg id="forecast" viewBox="0 0 760 210" role="img" aria-label="Forecast of water demand and capacity over 12 hours"></svg></div>
+          <div class="chart-legend"><span class="legend-key"><i class="legend-line"></i>Demand</span><span class="legend-key"><i class="legend-line capacity"></i>Safe capacity</span><span class="legend-key"><i class="legend-block"></i>Job window</span></div>
+        </section>
+
+        <section class="panel" aria-labelledby="rules-title">
+          <div class="panel-head"><div><h2 id="rules-title">Decision trace</h2><p>Why this action wins</p></div><span class="chip">RULE + FORECAST</span></div>
+          <div class="panel-body"><ul class="rule-list" id="rule-list"></ul></div>
+        </section>
+      </section>
+
+      <aside class="stack right-stack">
+        <section class="panel" aria-labelledby="workload-title">
+          <div class="panel-head"><div><h2 id="workload-title">Workload queue</h2><p>Selected job characteristics</p></div><span class="chip" id="priority-chip">FLEXIBLE</span></div>
+          <div class="panel-body">
+            <label class="field">Queued workload<select id="workload"><option value="training">TRN-4812 · Model training</option><option value="analytics">BAT-1029 · Batch analytics</option><option value="inference">INF-0071 · Critical inference</option><option value="backup">BKP-2290 · Nightly backup</option></select></label>
+            <div class="telemetry-grid" style="margin-top:12px">
+              <div class="sensor"><span class="id">GPU request</span><b id="job-gpu">96 × H100</b><small id="gpu-status">128 available</small></div>
+              <div class="sensor"><span class="id">Runtime</span><b id="job-runtime">3.0 h</b><small id="job-deadline">Deadline 04:00</small></div>
+              <div class="sensor"><span class="id">Added heat</span><b id="job-heat">+0.84 MW</b><small>IT load estimate</small></div>
+              <div class="sensor"><span class="id">Added water</span><b id="job-water">+1,280 L/h</b><small>Cooling demand</small></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="sites-title">
+          <div class="panel-head"><div><h2 id="sites-title">Candidate sites</h2><p>Compute + water + SLA feasibility</p></div></div>
+          <div class="panel-body"><div class="site-compare" id="site-compare"></div></div>
+        </section>
+
+        <section class="panel" aria-labelledby="loss-title">
+          <div class="panel-head"><div><h2 id="loss-title">Loss & reuse manager</h2><p>Expected makeup = evaporation + blowdown + drift</p></div></div>
+          <div class="panel-body">
+            <div class="telemetry-grid">
+              <div class="sensor"><span class="id">Expected</span><b id="expected-loss">5,870 L/h</b><small>Model baseline</small></div>
+              <div class="sensor"><span class="id">Residual</span><b id="residual-loss">−10 L/h</b><small id="loss-status">Within tolerance</small></div>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <section class="panel loop-panel" aria-labelledby="loop-title">
+      <div class="panel-head"><div><h2 id="loop-title">Closed-loop control path</h2><p>Physical water → decision → execution → measured response</p></div><span class="chip">30 SEC CYCLE</span></div>
+      <div class="loop" id="loop"></div>
+    </section>
+    <footer class="footer-note"><span>Prototype model · Synthetic operational data · Values are illustrative</span><span>Water balance = safe capacity − predicted demand</span></footer>
+  </main>
+
+  <script>
+    const fmt = new Intl.NumberFormat('en-MY');
+    const scenarios = {
+      stable: { name:'Stable operations', note:'Normal reserve', temp:31, tank:72, reclaimed:68, makeup:5860, community:'normal', leak:'none', alt:true, future:'stable', decision:'RUN NOW' },
+      heat: { name:'Peak heat', note:'42°C dry bulb', temp:42, tank:54, reclaimed:39, makeup:7100, community:'watch', leak:'none', alt:false, future:'better', decision:'DELAY' },
+      reuse: { name:'Reuse recovery', note:'Supply returns 22:00', temp:37, tank:41, reclaimed:22, makeup:6600, community:'restriction', leak:'none', alt:false, future:'better', decision:'DELAY' },
+      leak: { name:'Pipe leak', note:'LD-01 + pressure drop', temp:34, tank:39, reclaimed:58, makeup:7820, community:'watch', leak:'high', alt:true, future:'stable', decision:'MOVE SITE' },
+      emergency: { name:'Community emergency', note:'Flexible loads blocked', temp:38, tank:33, reclaimed:18, makeup:6950, community:'emergency', leak:'watch', alt:false, future:'poor', decision:'LIMIT LOAD' },
+      multisite: { name:'Multi-site failure', note:'No feasible placement', temp:43, tank:19, reclaimed:9, makeup:8460, community:'emergency', leak:'high', alt:false, future:'poor', workload:'inference', decision:'ESCALATE' }
+    };
+    const workloads = {
+      training: { id:'TRN-4812', label:'Model training', gpu:96, available:128, runtime:3, deadline:'04:00', heat:.84, water:1280, flexible:true },
+      analytics: { id:'BAT-1029', label:'Batch analytics', gpu:48, available:128, runtime:1.5, deadline:'22:30', heat:.39, water:660, flexible:true },
+      inference: { id:'INF-0071', label:'Critical inference', gpu:64, available:80, runtime:2, deadline:'18:45', heat:.61, water:920, flexible:false },
+      backup: { id:'BKP-2290', label:'Nightly backup', gpu:16, available:128, runtime:4, deadline:'06:00', heat:.18, water:310, flexible:true }
+    };
+    const loops = [
+      ['01','Sense','Flow · level · leak'],['02','Monitor','Current water state'],['03','Forecast','Demand + supply'],['04','Assess risk','Balance + policy'],['05','Schedule','Run · delay · move'],['06','Execute','Kubernetes / SLURM'],['07','Learn','Actual vs predicted']
+    ];
+    const state = { scenario:'stable', alt:true, future:'stable' };
+    const els = Object.fromEntries([...document.querySelectorAll('[id]')].map(el => [el.id, el]));
+
+    function icon(type) {
+      const icons = {
+        'RUN NOW':'<svg viewBox="0 0 48 48" fill="none"><path d="m18 12 18 12-18 12V12Z" fill="currentColor"/></svg>',
+        'DELAY':'<svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="15" stroke="currentColor" stroke-width="4"/><path d="M24 15v10l7 4" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>',
+        'MOVE SITE':'<svg viewBox="0 0 48 48" fill="none"><path d="M24 42s13-11 13-23a13 13 0 1 0-26 0c0 12 13 23 13 23Z" stroke="currentColor" stroke-width="3"/><circle cx="24" cy="19" r="4" fill="currentColor"/></svg>',
+        'LIMIT LOAD':'<svg viewBox="0 0 48 48" fill="none"><path d="M10 35V25h6v10h-6Zm11 0V18h6v17h-6Zm11 0V10h6v25h-6Z" fill="currentColor"/><path d="M7 39h34" stroke="currentColor" stroke-width="3"/></svg>',
+        'ESCALATE':'<svg viewBox="0 0 48 48" fill="none"><path d="M24 7 43 40H5L24 7Z" stroke="currentColor" stroke-width="3"/><path d="M24 18v10M24 34v1" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>'
+      }; return icons[type];
+    }
+
+    function renderScenarioButtons() {
+      els['scenario-list'].innerHTML = Object.entries(scenarios).map(([key,s]) => `<button class="scenario ${key===state.scenario?'active':''}" data-scenario="${key}"><b>${s.name}</b><span>${s.note}</span></button>`).join('');
+      els['scenario-list'].querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => applyScenario(btn.dataset.scenario)));
+    }
+    function applyScenario(key) {
+      const s = scenarios[key]; Object.assign(state,{scenario:key,alt:s.alt,future:s.future});
+      els.temperature.value=s.temp; els.tank.value=s.tank; els.reclaimed.value=s.reclaimed; els.makeup.value=s.makeup; els.community.value=s.community; els.leak.value=s.leak; els.workload.value=s.workload||'training';
+      renderScenarioButtons(); calculate(true);
+    }
+    function waterInputs() { return { temp:+els.temperature.value, tank:+els.tank.value, reclaimed:+els.reclaimed.value, makeup:+els.makeup.value, community:els.community.value, leak:els.leak.value, job:workloads[els.workload.value] }; }
+
+    function calculate(animate=false) {
+      const x=waterInputs();
+      const thermal=Math.max(0,x.temp-30)*118;
+      const reusePenalty=(100-x.reclaimed)*7.2;
+      const base=4300+thermal+reusePenalty;
+      const demand=Math.round((base+x.job.water)/10)*10;
+      let capacity=8000-(100-x.tank)*9-(x.community==='watch'?320:x.community==='restriction'?900:x.community==='emergency'?1700:0)-(x.leak==='watch'?360:x.leak==='high'?1450:0);
+      capacity=Math.round(capacity/10)*10;
+      const expected=Math.round((4850+thermal*.55+Math.max(0,50-x.reclaimed)*5)/10)*10;
+      const residual=x.makeup-expected;
+      const leakHigh=x.leak==='high'||residual>1050;
+      const unsafe=demand>capacity||x.tank<28||x.community==='emergency';
+      const projectedDeficit=demand>capacity-450||x.temp>=40;
+      let decision='RUN NOW', reason='Water and GPU capacity remain safe through the full job window.', start='16:30';
+      if (!x.job.flexible && unsafe && !state.alt) { decision='ESCALATE'; reason='Critical workload has no site that satisfies water, infrastructure and deadline constraints.'; }
+      else if (leakHigh && state.alt) { decision='MOVE SITE'; reason='Abnormal water loss reduces local safe capacity; Selangor can meet compute, water and SLA constraints.'; start='17:05'; }
+      else if ((unsafe||projectedDeficit) && state.alt && x.community!=='normal') { decision='MOVE SITE'; reason='Local water risk is elevated while the Selangor site remains feasible within the workload SLA.'; start='17:05'; }
+      else if ((unsafe||projectedDeficit) && state.future==='better' && x.job.flexible) { decision='DELAY'; reason='Current water risk is high; the 22:00 window restores reclaimed supply and remains before the deadline.'; start='22:00'; }
+      else if (unsafe||leakHigh||x.community==='restriction'||x.community==='emergency') { decision='LIMIT LOAD'; reason='Protect community reserve and stop new flexible workload admission until capacity recovers.'; start='HOLD'; }
+      else if (projectedDeficit && state.alt) { decision='MOVE SITE'; reason='Projected peak enters the safety margin; a lower-risk site can finish within the SLA.'; start='17:05'; }
+      const risk=Math.min(99,Math.max(8,Math.round(12+(x.temp-30)*2.1+(100-x.tank)*.26+(100-x.reclaimed)*.13+(x.community==='watch'?9:x.community==='restriction'?20:x.community==='emergency'?34:0)+(leakHigh?25:x.leak==='watch'?8:0)+(demand>capacity?15:0))));
+      const colors={'RUN NOW':['#24d6c7','36, 214, 199'],'DELAY':['#f5ba45','245, 186, 69'],'MOVE SITE':['#55a9ff','85, 169, 255'],'LIMIT LOAD':['#ff7a45','255, 122, 69'],'ESCALATE':['#ff5d6c','255, 93, 108']};
+      document.documentElement.style.setProperty('--decision',colors[decision][0]); document.documentElement.style.setProperty('--decision-rgb',colors[decision][1]);
+      els['decision-title'].textContent=decision; els['decision-reason'].textContent=reason; els['decision-icon'].innerHTML=icon(decision); els['risk-score'].textContent=risk;
+      els['start-time'].textContent=start; els['finish-time'].textContent=start==='HOLD'?'—':start==='22:00'?addHours(start,x.job.runtime):addHours(start,x.job.runtime);
+      els.confidence.textContent=(decision==='ESCALATE'?88:Math.max(84,98-Math.round(risk/12)))+'%';
+      els['demand-value'].textContent=fmt.format(demand)+' L/h'; els['capacity-value'].textContent=fmt.format(capacity)+' L/h';
+      const balance=capacity-demand; els['balance-value'].textContent=(balance>=0?'+':'−')+fmt.format(Math.abs(balance))+' L/h'; els['balance-value'].style.color=balance<0?'var(--red)':'var(--aqua)';
+      els['loss-value'].textContent=(residual>0?'+':'−')+fmt.format(Math.abs(residual))+' L/h';
+      updateInputs(x,expected,residual,leakHigh); updateWorkload(x.job); renderRules({decision,unsafe,projectedDeficit,leakHigh,balance,x}); renderSites(decision,x,risk); renderForecast(x,demand,capacity,decision); renderLoop(decision);
+      els['forecast-status'].textContent=balance<0?'DEFICIT '+fmt.format(Math.abs(balance))+' L/h':projectedDeficit?'MARGIN WATCH':'NO DEFICIT';
+      if(animate){ els['decision-card'].classList.remove('flash'); void els['decision-card'].offsetWidth; els['decision-card'].classList.add('flash'); }
+    }
+    function updateInputs(x,expected,residual,leakHigh){
+      els['temperature-out'].textContent=x.temp+'°C'; els['tank-out'].textContent=x.tank+'%'; els['reclaimed-out'].textContent=x.reclaimed+'%'; els['makeup-out'].textContent=fmt.format(x.makeup)+' L/h';
+      els['tel-makeup'].textContent=fmt.format(x.makeup)+' L/h'; els['tel-tank'].textContent=x.tank+'%'; els['tel-tds'].textContent=fmt.format(1180+Math.round((100-x.reclaimed)*7))+' ppm'; els['tel-pressure'].textContent=(x.leak==='high'?'2.7':x.leak==='watch'?'3.3':'3.8')+' bar';
+      const ground=x.reclaimed<20?8:4, potable=100-x.reclaimed-ground; els['mix-reclaimed'].style.width=x.reclaimed+'%'; els['mix-potable'].style.width=potable+'%'; els['mix-ground'].style.width=ground+'%'; els['reuse-label'].textContent=x.reclaimed+'% reclaimed';
+      els['expected-loss'].textContent=fmt.format(expected)+' L/h'; els['residual-loss'].textContent=(residual>=0?'+':'−')+fmt.format(Math.abs(residual))+' L/h'; els['loss-status'].textContent=leakHigh?'Abnormal loss':'Within tolerance'; els['residual-loss'].style.color=leakHigh?'var(--red)':'var(--text)';
+    }
+    function updateWorkload(j){
+      els['job-id'].textContent=j.id; els['job-gpu'].textContent=j.gpu+' × H100'; els['gpu-status'].textContent=j.available+' available'; els['job-runtime'].textContent=j.runtime.toFixed(1)+' h'; els['job-deadline'].textContent='Deadline '+j.deadline; els['job-heat'].textContent='+'+j.heat.toFixed(2)+' MW'; els['job-water'].textContent='+'+fmt.format(j.water)+' L/h'; els['priority-chip'].textContent=j.flexible?'FLEXIBLE':'CRITICAL';
+    }
+    function renderRules(c){
+      const rows=[
+        [c.x.job.gpu<=c.x.job.available?'pass':'fail','Compute capacity',`${c.x.job.gpu} GPUs requested · ${c.x.job.available} available`],
+        [c.balance>=0?'pass':'fail','Current water capacity',c.balance>=0?`${fmt.format(c.balance)} L/h safety margin`:`${fmt.format(Math.abs(c.balance))} L/h predicted deficit`],
+        [c.leakHigh?'fail':c.x.leak==='watch'?'warn':'pass','Loss anomaly',c.leakHigh?'Residual and sensor evidence exceed threshold':c.x.leak==='watch'?'One sensor requires observation':'Actual makeup matches expected model'],
+        [c.x.community==='normal'?'pass':c.x.community==='watch'?'warn':'fail','Community reserve',`${title(c.x.community)} operating condition`],
+        [c.projectedDeficit?'warn':'pass','Full job window',c.projectedDeficit?'Forecast approaches safe capacity':'Non-negative balance through completion'],
+        [c.decision==='ESCALATE'?'fail':c.decision==='MOVE SITE'?'warn':'pass','Feasible action',c.decision==='MOVE SITE'?'Alternative site verified':c.decision==='ESCALATE'?'No feasible site or time window':'Deadline remains achievable']
+      ];
+      els['rule-list'].innerHTML=rows.map(r=>`<li><i class="rule-state ${r[0]}">${r[0]==='pass'?'✓':r[0]==='fail'?'!':'~'}</i><div><b>${r[1]}</b><span>${r[2]}</span></div></li>`).join('');
+    }
+    function renderSites(decision,x,risk){
+      const local=Math.min(99,risk), altRisk=Math.min(88,Math.max(14,Math.round(risk*.42)));
+      const sites=[['Johor JHR-01',`${x.job.available} GPUs · ${x.reclaimed}% reclaimed`,local,decision!=='MOVE SITE'&&decision!=='ESCALATE'],['Selangor SGR-02',state.alt?'112 GPUs · 76% reclaimed':'Maintenance · unavailable',state.alt?altRisk:99,decision==='MOVE SITE'],['Singapore SGP-03','Residency constraint · blocked',64,false]];
+      els['site-compare'].innerHTML=sites.map(s=>`<div class="site-row ${s[3]?'selected':''}"><div><b>${s[0]}</b><span>${s[1]}</span></div><div class="site-score" style="color:${s[2]>75?'var(--red)':s[2]>48?'var(--amber)':'var(--aqua)'}">${s[2]}<span>risk</span></div></div>`).join('');
+    }
+    function renderForecast(x,demand,capacity,decision){
+      const w=760,h=210,left=45,right=16,top=12,bottom=28,plotW=w-left-right,plotH=h-top-bottom,n=12;
+      const futureBoost=state.future==='better'?-1150:state.future==='poor'?500:0;
+      const ds=Array.from({length:n},(_,i)=>Math.max(3300, demand + Math.sin(i*.72)*420 + (i>4?futureBoost*(i-4)/7:0) - (i>7?300:0)));
+      const cs=Array.from({length:n},(_,i)=>capacity + (i>5&&state.future==='better'?700:0) - (x.community==='emergency'?i*55:0));
+      const max=Math.max(...ds,...cs,9000), min=2500, y=v=>top+plotH-(v-min)/(max-min)*plotH, px=i=>left+i*(plotW/(n-1));
+      const grid=[3000,5000,7000,9000].filter(v=>v<=max+400).map(v=>`<g><line x1="${left}" y1="${y(v)}" x2="${w-right}" y2="${y(v)}" stroke="#1e3a52"/><text x="${left-8}" y="${y(v)+4}" text-anchor="end" fill="#718da2" font-size="10">${v/1000}k</text></g>`).join('');
+      const startIndex=decision==='DELAY'?6:decision==='LIMIT LOAD'||decision==='ESCALATE'?-1:decision==='MOVE SITE'?1:0, jobWidth=Math.max(1,x.job.runtime)*(plotW/11);
+      const jobBand=startIndex>=0?`<rect x="${Math.max(left,px(startIndex)-5)}" y="${top}" width="${Math.min(jobWidth,w-right-px(startIndex)+5)}" height="${plotH}" fill="rgba(245,186,69,.09)" stroke="rgba(245,186,69,.2)"/>`:'';
+      const path=a=>a.map((v,i)=>(i?'L':'M')+px(i).toFixed(1)+','+y(v).toFixed(1)).join(' ');
+      const labels=Array.from({length:n},(_,i)=>i%2===0?`<text x="${px(i)}" y="${h-7}" text-anchor="middle" fill="#718da2" font-size="10">${String((16+i)%24).padStart(2,'0')}:00</text>`:'').join('');
+      const alerts=ds.map((v,i)=>v>cs[i]?`<circle cx="${px(i)}" cy="${y(v)}" r="4" fill="#ff5d6c"/>`:'').join('');
+      els.forecast.innerHTML=`${jobBand}${grid}<path d="${path(cs)}" fill="none" stroke="#55a9ff" stroke-width="2" stroke-dasharray="5 5"/><path d="${path(ds)}" fill="none" stroke="#24d6c7" stroke-width="3"/><path d="${path(ds)} L ${px(n-1)},${top+plotH} L ${left},${top+plotH} Z" fill="rgba(36,214,199,.06)"/>${alerts}${labels}<text x="8" y="14" fill="#718da2" font-size="9">L/h</text>`;
+    }
+    function renderLoop(decision){ const active=decision==='RUN NOW'?5:decision==='ESCALATE'?4:4; els.loop.innerHTML=loops.map((s,i)=>`<div class="loop-step ${i===active?'active':''}"><span class="num">${s[0]}</span><b>${s[1]}</b><span>${s[2]}</span></div>`).join(''); }
+    function addHours(t,h){ const [hh,mm]=t.split(':').map(Number), total=hh*60+mm+h*60; return String(Math.floor(total/60)%24).padStart(2,'0')+':'+String(total%60).padStart(2,'0'); }
+    function title(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+    ['temperature','tank','reclaimed','makeup','community','leak'].forEach(id=>els[id].addEventListener('input',()=>{ state.scenario='custom'; renderScenarioButtons(); calculate(); }));
+    els.workload.addEventListener('change',()=>calculate(true)); els['run-model'].addEventListener('click',()=>calculate(true));
+    function updateClock(){ const now=new Date(); els.clock.textContent='KUL · '+new Intl.DateTimeFormat('en-MY',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Kuala_Lumpur'}).format(now)+' MYT'; }
+    function registerWebMCP(){
+      const context=document.modelContext;
+      if(!context?.registerTool) return;
+      try {
+        context.registerTool({
+          name:'simulate_aquacompute_scenario',
+          title:'Simulate AquaCompute scenario',
+          description:'Apply one operational scenario to the visible dashboard and return the water-aware scheduler recommendation.',
+          inputSchema:{type:'object',properties:{scenario:{type:'string',enum:Object.keys(scenarios)}},required:['scenario'],additionalProperties:false},
+          annotations:{readOnlyHint:false,untrustedContentHint:false},
+          execute(input){
+            if(!input||typeof input.scenario!=='string'||!scenarios[input.scenario]) throw new Error('Unknown scenario');
+            applyScenario(input.scenario);
+            return {scenario:input.scenario,decision:els['decision-title'].textContent,riskScore:Number(els['risk-score'].textContent),start:els['start-time'].textContent,reason:els['decision-reason'].textContent};
+          }
+        });
+      } catch(error) { console.warn('WebMCP registration unavailable',error); }
+    }
+    renderScenarioButtons(); renderLoop('RUN NOW'); calculate(); updateClock(); registerWebMCP(); setInterval(updateClock,30000);
+  </script>
+</body>
+</html>
