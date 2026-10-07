@@ -4,7 +4,9 @@
   "private": true,
   "description": "Water-aware data center monitoring and workload scheduling prototype",
   "scripts": {
-    "start": "node server.cjs"
+    "start": "node server.cjs",
+    "simulate": "node scripts/simulate.cjs",
+    "scenarios": "node scripts/simulate.cjs --list"
   },
   "engines": {
     "node": ">=18"
