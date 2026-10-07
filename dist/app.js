@@ -234,7 +234,7 @@
   function policy(icon,title,desc,key,value,type,options=[]){ return `<section class="card policy"><h3>${icon} ${title}</h3><p>${desc}</p><div class="field"><label>${title}</label>${type==='select'?`<select data-setting="${key}">${options.map(x=>`<option ${x===value?'selected':''}>${x}</option>`).join('')}</select>`:`<input data-setting="${key}" type="${type}" value="${value}" step="0.05">`}</div><p><span class="toggle on"></span> Policy active</p></section>`; }
 
   const pages={overview,sites:sitesPage,monitoring,analytics,scheduler,reports,cases:casesPage,settings};
-  function render(){ $('#primary-nav').innerHTML=NAV.map(n=>`<button class="nav-btn ${state.page===n[0]?'active':''}" data-page="${n[0]}"><i>${iconSvg(n[2])}</i>${n[2]}</button>`).join(''); app.innerHTML=(pages[state.page]||overview)()+evidenceModal(); bind(); window.scrollTo({top:0,behavior:'instant'}); }
+  function render(preserveScroll=false){ const previousScroll=window.scrollY; $('#primary-nav').innerHTML=NAV.map(n=>`<button class="nav-btn ${state.page===n[0]?'active':''}" data-page="${n[0]}"><i>${iconSvg(n[2])}</i>${n[2]}</button>`).join(''); app.innerHTML=(pages[state.page]||overview)()+evidenceModal(); bind(); if(preserveScroll)requestAnimationFrame(()=>window.scrollTo(0,previousScroll));else window.scrollTo({top:0,behavior:'instant'}); }
   async function pollExternalSimulation(){
     try{
       const response=await fetch('/api/simulation/latest',{cache:'no-store'});if(!response.ok)return;
@@ -270,17 +270,17 @@
   function bind(){
     document.querySelectorAll('[data-page]').forEach(el=>el.addEventListener('click',()=>{state.page=el.dataset.page;if(el.dataset.caseTab)state.caseTab=el.dataset.caseTab;render()}));
     document.querySelectorAll('[data-site]').forEach(el=>el.addEventListener('click',()=>{state.site=el.dataset.site;render()}));
-    document.querySelectorAll('[data-map-region]').forEach(el=>el.addEventListener('click',()=>{state.mapRegion=el.dataset.mapRegion;const region=state.mapRegion==='usa'?'Americas':state.mapRegion==='apac'?'Asia Pacific':null;if(region&&site().region!==region)state.site=sites.find(s=>s.region===region).id;render()}));
+    document.querySelectorAll('[data-map-region]').forEach(el=>el.addEventListener('click',()=>{state.mapRegion=el.dataset.mapRegion;const region=state.mapRegion==='usa'?'Americas':state.mapRegion==='apac'?'Asia Pacific':null;if(region&&site().region!==region)state.site=sites.find(s=>s.region===region).id;render(true)}));
     document.querySelectorAll('.site-select').forEach(el=>el.addEventListener('change',()=>{state.site=el.value;render()}));
-    document.querySelectorAll('[data-site-tab]').forEach(el=>el.addEventListener('click',()=>{state.siteTab=el.dataset.siteTab;render()}));
-    document.querySelectorAll('[data-case-tab]').forEach(el=>el.addEventListener('click',()=>{state.caseTab=el.dataset.caseTab;state.page='cases';render()}));
+    document.querySelectorAll('[data-site-tab]').forEach(el=>el.addEventListener('click',()=>{state.siteTab=el.dataset.siteTab;render(true)}));
+    document.querySelectorAll('[data-case-tab]').forEach(el=>el.addEventListener('click',()=>{state.caseTab=el.dataset.caseTab;state.page='cases';render(true)}));
     document.querySelectorAll('[data-case-select]').forEach(el=>el.addEventListener('click',()=>{state.caseId=el.dataset.caseSelect;state.page='cases';state.caseTab='alerts';render()}));
     document.querySelectorAll('[data-report]').forEach(el=>el.addEventListener('click',()=>{state.report=el.dataset.report;render()}));
     document.querySelectorAll('[data-job]').forEach(el=>el.addEventListener('click',()=>{state.sim.job=el.dataset.job;state.page='scheduler';render()}));
     document.querySelectorAll('[data-sim]').forEach(el=>el.addEventListener('input',()=>{let v=el.value;if(el.type==='range'||el.dataset.sim==='temp'||el.dataset.sim==='makeup')v=Number(v);if(el.dataset.sim==='alt')v=v==='true';state.sim[el.dataset.sim]=v;render()}));
     document.querySelectorAll('[data-toast]').forEach(el=>el.addEventListener('click',()=>toast(el.dataset.toast)));
     document.querySelectorAll('[data-download]').forEach(el=>el.addEventListener('click',()=>downloadCsv(el.dataset.download)));
-    document.querySelectorAll('[data-test-filter]').forEach(el=>el.addEventListener('click',()=>{state.testFilter=el.dataset.testFilter;render()}));
+    document.querySelectorAll('[data-test-filter]').forEach(el=>el.addEventListener('click',()=>{state.testFilter=el.dataset.testFilter;render(true)}));
     document.querySelectorAll('[data-load-test]').forEach(el=>el.addEventListener('click',()=>{const t=tests.find(x=>x.id===el.dataset.loadTest);state.sim={...t};state.page='scheduler';render();toast(`${t.id} loaded into simulator`)}));
     const run=$('#run-all-tests'); if(run)run.addEventListener('click',()=>{tests.forEach(t=>state.testResults[t.id]=evaluate(t).action);render();const passed=tests.filter(t=>state.testResults[t.id]===t.expected).length;toast(`${passed}/24 scheduler tests passed`)});
     const optimize=$('#run-optimizer'); if(optimize)optimize.addEventListener('click',()=>{const result=evaluate(state.sim);toast(`Optimizer complete · ${result.action} · risk ${result.risk}/100`)});
