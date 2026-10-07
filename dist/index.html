@@ -3,468 +3,66 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="AquaCompute interactive water-aware workload scheduler and scenario simulator.">
-  <meta name="theme-color" content="#07111f">
-  <title>AquaCompute Command Center</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307111f'/%3E%3Cpath d='M32 8C20 24 14 31 14 41a18 18 0 0036 0c0-10-6-17-18-33z' fill='%2324d6c7'/%3E%3Cpath d='M21 42h7l4-11 6 18 4-7h6' fill='none' stroke='%2307111f' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <meta name="description" content="AQUASHIFT water-aware data center operations dashboard">
+  <title>AQUASHIFT Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23005b89'/%3E%3Cpath d='M32 8C21 23 15 31 15 41a17 17 0 0034 0c0-10-6-18-17-33z' fill='%23fff'/%3E%3Cpath d='M22 41h7l3-10 6 18 4-8h5' fill='none' stroke='%2300a7ce' stroke-width='4'/%3E%3C/svg%3E">
   <style>
-    :root {
-      color-scheme: dark;
-      --ink: #07111f;
-      --panel: #0d1c2d;
-      --panel-2: #11243a;
-      --line: #203a53;
-      --muted: #8fa8bc;
-      --text: #eef8fb;
-      --aqua: #24d6c7;
-      --blue: #55a9ff;
-      --amber: #f5ba45;
-      --orange: #ff7a45;
-      --red: #ff5d6c;
-      --green: #68d391;
-      --decision: #24d6c7;
-      --decision-rgb: 36, 214, 199;
-      --shadow: 0 18px 60px rgba(0,0,0,.28);
-      --radius: 14px;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body {
-      margin: 0;
-      min-width: 320px;
-      background: var(--ink);
-      color: var(--text);
-      font-size: 16px;
-      line-height: 1.45;
-    }
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      opacity: .24;
-      background-image: linear-gradient(rgba(85,169,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(85,169,255,.06) 1px, transparent 1px);
-      background-size: 44px 44px;
-      mask-image: linear-gradient(to bottom, #000, transparent 78%);
-    }
-    button, input, select { font: inherit; }
-    button, select, input[type="range"] { cursor: pointer; }
-    button:focus-visible, select:focus-visible, input:focus-visible {
-      outline: 3px solid rgba(85,169,255,.55);
-      outline-offset: 2px;
-    }
-    .shell { width: min(1540px, calc(100% - 32px)); margin: 0 auto; padding: 20px 0 44px; position: relative; }
-    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
-    .brand { display: flex; align-items: center; gap: 12px; }
-    .brandmark { width: 42px; height: 42px; display: grid; place-items: center; color: var(--aqua); border: 1px solid var(--line); background: var(--panel); }
-    .brandmark svg { width: 25px; }
-    h1 { font-size: clamp(1.1rem, 2vw, 1.45rem); margin: 0; letter-spacing: -.02em; }
-    .eyebrow { color: var(--aqua); text-transform: uppercase; letter-spacing: .13em; font-size: .72rem; font-weight: 800; margin: 0 0 2px; }
-    .system-status { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: .82rem; }
-    .pulse { width: 9px; height: 9px; background: var(--aqua); border-radius: 50%; box-shadow: 0 0 0 5px rgba(36,214,199,.09); }
-    .scenario-bar { border: 1px solid var(--line); background: rgba(13,28,45,.88); box-shadow: var(--shadow); padding: 14px; margin-bottom: 14px; }
-    .bar-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
-    .bar-head h2 { margin: 0; font-size: .9rem; letter-spacing: .05em; text-transform: uppercase; }
-    .clock { color: var(--muted); font-variant-numeric: tabular-nums; font-size: .82rem; }
-    .scenario-list { display: grid; grid-template-columns: repeat(6, minmax(145px, 1fr)); gap: 8px; }
-    .scenario {
-      min-height: 62px;
-      color: var(--text);
-      background: #0a1726;
-      border: 1px solid var(--line);
-      border-radius: 9px;
-      padding: 10px 12px;
-      text-align: left;
-      transition: border-color .18s, background .18s, transform .18s;
-    }
-    .scenario:hover { transform: translateY(-1px); border-color: #416483; }
-    .scenario.active { border-color: var(--aqua); background: rgba(36,214,199,.08); box-shadow: inset 0 -2px var(--aqua); }
-    .scenario b { display: block; font-size: .84rem; }
-    .scenario span { color: var(--muted); font-size: .72rem; }
-    .dashboard { display: grid; grid-template-columns: minmax(270px, .78fr) minmax(500px, 1.55fr) minmax(300px, .9fr); gap: 14px; align-items: start; }
-    .stack { display: grid; gap: 14px; }
-    .panel { border: 1px solid var(--line); background: rgba(13,28,45,.94); box-shadow: 0 12px 34px rgba(0,0,0,.18); }
-    .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 15px 16px 12px; border-bottom: 1px solid var(--line); }
-    .panel-head h2, .panel-head h3 { margin: 0; font-size: .88rem; text-transform: uppercase; letter-spacing: .08em; }
-    .panel-head p { margin: 4px 0 0; color: var(--muted); font-size: .75rem; }
-    .panel-body { padding: 16px; }
-    .control { margin-bottom: 17px; }
-    .control:last-child { margin-bottom: 0; }
-    .control-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; font-size: .78rem; color: #c7d8e4; }
-    .control-label output { color: var(--text); font-weight: 750; font-variant-numeric: tabular-nums; }
-    input[type="range"] { width: 100%; accent-color: var(--aqua); }
-    .range-scale { display: flex; justify-content: space-between; color: #6f8ba1; font-size: .67rem; margin-top: 2px; }
-    .select-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    label.field { display: grid; gap: 6px; color: var(--muted); font-size: .72rem; }
-    select { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; color: var(--text); background: #081522; font-size: .8rem; }
-    .run-button { width: 100%; margin-top: 16px; border: 0; background: var(--aqua); color: #041514; font-weight: 850; padding: 12px; border-radius: 8px; transition: filter .2s, transform .2s; }
-    .run-button:hover { filter: brightness(1.08); transform: translateY(-1px); }
-    .decision-hero { position: relative; overflow: hidden; min-height: 245px; background: #0d1c2d; }
-    .decision-hero::after { content: ""; position: absolute; inset: auto -10% -70% 34%; height: 250px; border: 46px solid rgba(var(--decision-rgb),.06); border-radius: 50%; pointer-events: none; }
-    .decision-top { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 20px 0; }
-    .decision-kicker { color: var(--muted); text-transform: uppercase; letter-spacing: .12em; font-size: .72rem; font-weight: 800; }
-    .risk-index { text-align: right; }
-    .risk-index b { display: block; font-size: 1.25rem; line-height: 1; color: var(--decision); }
-    .risk-index span { color: var(--muted); font-size: .68rem; text-transform: uppercase; }
-    .decision-main { display: grid; grid-template-columns: 96px 1fr; gap: 18px; align-items: center; padding: 12px 20px 16px; }
-    .decision-icon { width: 88px; height: 88px; display: grid; place-items: center; border: 1px solid rgba(var(--decision-rgb),.55); background: rgba(var(--decision-rgb),.08); color: var(--decision); }
-    .decision-icon svg { width: 42px; height: 42px; }
-    .decision-copy h2 { margin: 0; color: var(--decision); font-size: clamp(2rem, 4vw, 3.7rem); line-height: .95; letter-spacing: -.055em; text-transform: uppercase; }
-    .decision-copy p { margin: 10px 0 0; max-width: 640px; color: #c4d7e4; }
-    .decision-meta { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 20px 18px; }
-    .chip { border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; color: var(--muted); background: #091624; font-size: .72rem; }
-    .chip strong { color: var(--text); }
-    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); }
-    .metric { padding: 13px 14px; border-right: 1px solid var(--line); min-width: 0; }
-    .metric:last-child { border-right: 0; }
-    .metric span { color: var(--muted); font-size: .68rem; display: block; text-transform: uppercase; letter-spacing: .05em; }
-    .metric b { display: block; margin-top: 4px; font-size: 1.03rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .metric small { font-size: .66rem; color: #718da2; }
-    .forecast-wrap { padding: 12px 15px 8px; }
-    #forecast { width: 100%; height: 210px; display: block; overflow: visible; }
-    .chart-legend { display: flex; gap: 16px; align-items: center; color: var(--muted); font-size: .7rem; padding: 0 16px 14px; }
-    .legend-key { display: inline-flex; gap: 6px; align-items: center; }
-    .legend-line { width: 17px; height: 3px; background: var(--aqua); }
-    .legend-line.capacity { background: var(--blue); }
-    .legend-block { width: 8px; height: 8px; background: rgba(245,186,69,.55); }
-    .telemetry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .sensor { border: 1px solid var(--line); padding: 11px; background: #091624; min-width: 0; }
-    .sensor .id { color: var(--muted); font-size: .67rem; text-transform: uppercase; letter-spacing: .06em; }
-    .sensor b { display: block; font-size: 1rem; margin-top: 4px; font-variant-numeric: tabular-nums; }
-    .sensor small { color: #6f8ba1; font-size: .67rem; }
-    .source-mix { margin-top: 14px; }
-    .source-line { display: flex; justify-content: space-between; font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
-    .mixbar { height: 12px; display: flex; overflow: hidden; border: 1px solid var(--line); background: #07111f; }
-    .mix-reclaimed { background: var(--aqua); }
-    .mix-potable { background: var(--blue); }
-    .mix-ground { background: var(--amber); }
-    .mixlabels { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 8px; font-size: .67rem; color: var(--muted); }
-    .dot { width: 7px; height: 7px; display: inline-block; margin-right: 4px; border-radius: 50%; }
-    .rule-list { list-style: none; margin: 0; padding: 0; }
-    .rule-list li { display: grid; grid-template-columns: 26px 1fr; gap: 9px; align-items: start; padding: 10px 0; border-bottom: 1px solid rgba(32,58,83,.75); }
-    .rule-list li:last-child { border-bottom: 0; }
-    .rule-state { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid var(--line); color: var(--muted); font-size: .7rem; }
-    .rule-state.pass { color: var(--aqua); border-color: rgba(36,214,199,.45); }
-    .rule-state.fail { color: var(--red); border-color: rgba(255,93,108,.45); }
-    .rule-state.warn { color: var(--amber); border-color: rgba(245,186,69,.45); }
-    .rule-list b { display: block; font-size: .77rem; }
-    .rule-list span { display: block; margin-top: 2px; color: var(--muted); font-size: .7rem; }
-    .site-compare { display: grid; gap: 9px; }
-    .site-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 11px; border: 1px solid var(--line); background: #091624; }
-    .site-row.selected { border-color: var(--decision); }
-    .site-row b { font-size: .8rem; }
-    .site-row span { display: block; color: var(--muted); font-size: .67rem; }
-    .site-score { text-align: right; font-weight: 800; color: var(--aqua); }
-    .loop-panel { margin-top: 14px; }
-    .loop { display: grid; grid-template-columns: repeat(7, 1fr); }
-    .loop-step { position: relative; padding: 14px 12px; min-height: 88px; border-right: 1px solid var(--line); }
-    .loop-step:last-child { border-right: 0; }
-    .loop-step::after { content: ">"; position: absolute; right: -5px; top: 34px; z-index: 2; color: #496a83; background: var(--panel); }
-    .loop-step:last-child::after { display: none; }
-    .loop-step .num { color: var(--aqua); font-size: .7rem; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
-    .loop-step b { display: block; margin-top: 5px; font-size: .75rem; }
-    .loop-step span { display: block; margin-top: 3px; color: var(--muted); font-size: .65rem; }
-    .loop-step.active { background: rgba(var(--decision-rgb),.06); box-shadow: inset 0 -2px var(--decision); }
-    .footer-note { display: flex; justify-content: space-between; gap: 18px; color: #6f8ba1; font-size: .7rem; margin-top: 12px; }
-    .flash { animation: flash .42s ease; }
-    @keyframes flash { 0% { opacity: .45; transform: translateY(4px); } 100% { opacity: 1; transform: none; } }
-    @media (max-width: 1180px) {
-      .dashboard { grid-template-columns: 290px 1fr; }
-      .right-stack { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
-      .scenario-list { grid-template-columns: repeat(3, 1fr); }
-    }
-    @media (max-width: 780px) {
-      .shell { width: min(100% - 20px, 680px); padding-top: 12px; }
-      .topbar { align-items: flex-start; }
-      .system-status { display: none; }
-      .scenario-list { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 3px; }
-      .scenario { flex: 0 0 155px; scroll-snap-align: start; }
-      .dashboard { grid-template-columns: 1fr; }
-      .right-stack { grid-column: auto; grid-template-columns: 1fr; }
-      .decision-main { grid-template-columns: 68px 1fr; gap: 12px; }
-      .decision-icon { width: 64px; height: 64px; }
-      .decision-icon svg { width: 32px; }
-      .metrics { grid-template-columns: 1fr 1fr; }
-      .metric:nth-child(2) { border-right: 0; }
-      .metric:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
-      .loop { grid-template-columns: 1fr 1fr; }
-      .loop-step { border-bottom: 1px solid var(--line); }
-      .loop-step::after { display: none; }
-      .footer-note { display: block; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
-    }
+    :root{--navy:#07385d;--navy2:#032d4d;--blue:#087fd1;--cyan:#00a7ce;--teal:#00a98f;--bg:#eef5f8;--card:#fff;--line:#d8e5eb;--text:#133b5a;--muted:#6c8799;--green:#14a34a;--amber:#efa20b;--orange:#ee7227;--red:#e33f4f;--shadow:0 3px 12px rgba(19,59,90,.08);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-size:15px;line-height:1.4}button,input,select{font:inherit}button,select,input[type=range]{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid rgba(8,127,209,.25);outline-offset:2px}
+    .top{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:24px;padding:0 24px;position:sticky;top:0;z-index:30}.logo{font-size:1.45rem;font-weight:900;color:#05769c;letter-spacing:-.06em}.logo small{display:block;font-size:.52rem;letter-spacing:0;color:#1988ab;margin-top:-3px}.product{border-left:1px solid var(--line);padding-left:20px}.product b{display:block;font-size:1.12rem;color:#07517c}.product span{font-size:.68rem;color:var(--muted)}.top-search{margin-left:auto;position:relative}.top-search input{width:265px;border:1px solid var(--line);background:#f8fbfc;border-radius:5px;padding:9px 12px 9px 33px;color:var(--text);font-size:.72rem}.search-icon{position:absolute;left:11px;top:9px;color:var(--blue)}.date-box{border:1px solid var(--line);padding:8px 11px;border-radius:5px;font-size:.7rem;color:var(--text)}.live{display:flex;align-items:center;gap:6px;font-size:.7rem}.live i{width:8px;height:8px;border-radius:50%;background:var(--green)}.icon-btn{border:1px solid var(--line);background:white;color:var(--blue);width:34px;height:34px;border-radius:5px}.user{display:flex;align-items:center;gap:8px;border-left:1px solid var(--line);padding-left:14px}.avatar{width:34px;height:34px;border-radius:50%;background:#0a75a6;color:white;display:grid;place-items:center;font-size:.72rem;font-weight:800}.user b,.user span{display:block}.user b{font-size:.7rem}.user span{font-size:.61rem;color:var(--muted)}
+    .shell{display:grid;grid-template-columns:76px 1fr;min-height:calc(100vh - 64px)}.side{background:linear-gradient(#075b85,#032f51);position:sticky;top:64px;height:calc(100vh - 64px);z-index:20}.nav{display:flex;flex-direction:column}.nav button{border:0;border-bottom:1px solid rgba(255,255,255,.06);background:transparent;color:#b8d7e5;height:70px;padding:7px 3px;font-size:.59rem}.nav button:hover,.nav button.active{background:#087aaf;color:white}.nav button.active{box-shadow:inset 4px 0 #32d1e8}.nav .ico{display:block;font-size:1.1rem;margin-bottom:5px}.main{padding:13px;min-width:0}.page-title{display:flex;align-items:center;justify-content:space-between;margin:2px 2px 10px}.page-title h1{font-size:1.05rem;margin:0}.page-title p{font-size:.68rem;color:var(--muted);margin:2px 0 0}.page-title .updated{font-size:.64rem;color:var(--muted)}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);min-width:0}.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 12px}.card-head h2,.card-head h3{font-size:.85rem;margin:0;color:#0c4168}.card-head p{font-size:.63rem;color:var(--muted);margin:1px 0 0}.card-body{padding:10px 12px}.select{border:1px solid var(--line);border-radius:4px;background:white;color:var(--text);padding:6px 28px 6px 8px;font-size:.65rem}.tag{display:inline-flex;border-radius:10px;padding:3px 9px;font-size:.6rem;font-weight:800;white-space:nowrap}.green{background:#dff6e9;color:#08733a}.amber{background:#fff0d2;color:#a96700}.red{background:#ffe0e4;color:#b62334}.blue{background:#dff2fb;color:#076b9c}.gray{background:#edf2f4;color:#657b88}
+    .overview-top{display:grid;grid-template-columns:minmax(430px,.78fr) minmax(650px,1.45fr);gap:10px}.map{height:245px;position:relative;overflow:hidden;background:#d8eff8;border-radius:0 0 6px 6px}.map::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 38% 35%,#e8f2e6 0 18%,transparent 19%),radial-gradient(ellipse at 54% 66%,#d8ead8 0 15%,transparent 16%),linear-gradient(125deg,transparent 0 45%,rgba(0,124,169,.08) 45% 62%,transparent 62%)}.map::after{content:"MALAYSIA                         SOUTH CHINA SEA";position:absolute;left:27%;top:46%;font-size:.63rem;letter-spacing:.16em;color:#83a9b8;transform:rotate(-5deg)}.map-node{position:absolute;border:0;background:transparent;text-align:left;z-index:2}.map-node i{display:block;width:20px;height:20px;border-radius:50%;background:var(--green);border:3px solid white;box-shadow:0 0 0 2px var(--green)}.map-node.watch i{background:var(--amber);box-shadow:0 0 0 2px var(--amber)}.map-node.alert i{background:var(--red);box-shadow:0 0 0 2px var(--red)}.map-node.active i{box-shadow:0 0 0 3px var(--navy),0 0 0 7px rgba(8,127,209,.2)}.map-node span{display:block;margin:-22px 0 0 27px;background:white;border:1px solid #bcd3dd;padding:3px 6px;border-radius:3px;font-size:.64rem;font-weight:800;white-space:nowrap}.p-pen{left:20%;top:18%}.p-sgr{left:29%;top:45%}.p-jhr{left:57%;top:72%}.p-sgp{left:68%;top:84%}.map-legend{position:absolute;left:10px;bottom:8px;display:flex;gap:10px;background:white;padding:5px 8px;border-radius:3px;font-size:.59rem}.map-legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:3px}
+    table{width:100%;border-collapse:collapse}th{text-align:left;background:#f4f8fa;color:#49697e;font-size:.59rem;text-transform:uppercase;letter-spacing:.03em;padding:8px;border-bottom:1px solid var(--line)}td{padding:8px;border-bottom:1px solid var(--line);font-size:.64rem}tbody tr:hover{background:#f7fbfd}.site-link,.job-link{border:0;background:transparent;color:var(--text);font-weight:800;padding:0}.site-cell{display:flex;align-items:center;gap:8px}.building{font-size:1.1rem;color:var(--blue)}.tiny-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:4px}.trend{width:90px;height:23px}.arrow{color:var(--green);font-weight:800}
+    .overview-mid{display:grid;grid-template-columns:1.05fr .82fr .82fr .82fr;gap:9px;margin-top:9px}.metric3{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.kpi{border:1px solid var(--line);border-radius:5px;padding:8px;text-align:center;background:#fbfdfe}.kpi span{display:block;font-size:.57rem;color:var(--muted)}.kpi b{display:block;font-size:.9rem;line-height:1.05;margin:5px 0 2px}.kpi small{font-size:.56rem;color:var(--green)}.weather-now{display:grid;grid-template-columns:repeat(3,1fr) 1.25fr;gap:8px;align-items:center}.weather-kpi{text-align:center}.weather-kpi i{font-style:normal;color:var(--red);font-size:1rem}.weather-kpi b{display:block;font-size:.9rem}.weather-kpi span{display:block;font-size:.55rem;color:var(--muted)}.dry-box{background:#e8f8ee;border-radius:5px;padding:9px;text-align:center;color:#147a42}.dry-box b{display:block;font-size:.68rem}.dry-box button{border:0;background:#16a85a;color:white;border-radius:4px;padding:6px 9px;font-size:.61rem;font-weight:800;margin-top:6px}.mini-chart{height:110px;margin-top:8px}.mini-chart svg{width:100%;height:100%}.leak-alert{margin-top:7px;background:#ffe9ea;color:#bb2b39;padding:7px;border-radius:4px;font-size:.61rem;font-weight:700}.asset-map{height:100px;margin-top:7px;background:#eaf2f5;position:relative;border-radius:4px}.asset-map::before{content:"COOLING TOWER      PUMP ROOM      STORAGE";position:absolute;left:8%;top:42%;font-size:.55rem;letter-spacing:.08em;color:#7a94a4}.asset-dot{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid white}.reuse{display:grid;grid-template-columns:115px 1fr;gap:9px;align-items:center}.donut{width:100px;height:100px;border-radius:50%;background:conic-gradient(var(--teal) 0 65%,var(--blue) 65%);display:grid;place-items:center;margin:auto}.donut::after{content:"";width:60px;height:60px;border-radius:50%;background:white;position:absolute}.donut strong{position:relative;z-index:1;font-size:.9rem}.mix-row{display:grid;grid-template-columns:70px 1fr 35px;gap:5px;align-items:center;font-size:.58rem;margin:6px 0}.bar{height:7px;background:#edf2f4;border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--teal)}
+    .overview-low{display:grid;grid-template-columns:1.2fr .75fr .9fr;gap:9px;margin-top:9px}.recommend{margin:0 10px 8px;padding:8px;background:#e9f8f6;border:1px solid #bce7df;border-radius:4px;display:flex;align-items:center;gap:9px;font-size:.62rem}.recommend b{color:#086a5a}.recommend button{margin-left:auto;border:0;background:var(--blue);color:white;padding:6px 12px;border-radius:4px;font-size:.59rem}.chart{height:170px}.chart svg{width:100%;height:100%;display:block}.case-list{max-height:180px;overflow:auto}.case-row{display:grid;grid-template-columns:45px 60px 1fr 50px;gap:5px;padding:7px;border-bottom:1px solid var(--line);font-size:.59rem;align-items:center}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.site-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.site-card{padding:13px}.site-card.selected{border-color:var(--blue);box-shadow:inset 0 3px var(--blue),var(--shadow)}.site-card h3{margin:0;font-size:.82rem}.site-card p{margin:2px 0 10px;font-size:.61rem;color:var(--muted)}.site-card-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px}.stat{background:#f4f8fa;padding:7px}.stat span{display:block;font-size:.55rem;color:var(--muted)}.stat b{font-size:.77rem}.section-gap{margin-top:10px}.big-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.big-kpi{padding:12px}.big-kpi span{display:block;color:var(--muted);font-size:.59rem}.big-kpi b{display:block;font-size:1.2rem;margin:4px 0}.big-kpi small{font-size:.58rem;color:var(--green)}
+    .control-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.control{background:#f7fafb;border:1px solid var(--line);padding:10px;border-radius:5px}.control label{display:flex;justify-content:space-between;font-size:.62rem;margin-bottom:6px}.control output{font-weight:800}.control input{width:100%;accent-color:var(--blue)}.control select{width:100%;border:1px solid var(--line);padding:6px;background:white}.decision{background:var(--navy);color:white;padding:15px;border-radius:6px}.decision span{font-size:.59rem;color:#91b5c8;text-transform:uppercase}.decision h2{font-size:1.75rem;margin:3px 0;color:#6fe2d0}.decision p{font-size:.65rem;color:#c0d5df;margin:0}.decision-grid{display:grid;grid-template-columns:repeat(3,1fr);margin-top:12px;border-top:1px solid #315c77}.decision-grid div{padding:8px;border-right:1px solid #315c77}.decision-grid div:last-child{border-right:0}.decision-grid b{display:block;font-size:.72rem}.test-toolbar{display:flex;justify-content:space-between;gap:10px;padding:9px;border-bottom:1px solid var(--line)}.filters{display:flex;gap:4px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:white;color:var(--text);border-radius:4px;padding:6px 9px;font-size:.61rem;font-weight:800}.btn.primary{background:var(--blue);border-color:var(--blue);color:white}.btn.active{background:var(--navy);color:white}.test-scroll{max-height:500px;overflow:auto}.loaded{background:#ecf8fc}.pass{color:var(--green);font-weight:800}.fail{color:var(--red);font-weight:800}.setting-row{display:grid;grid-template-columns:1fr 160px;gap:15px;align-items:center;padding:12px;border-bottom:1px solid var(--line)}.setting-row b{display:block;font-size:.7rem}.setting-row span{display:block;font-size:.6rem;color:var(--muted)}.setting-row input,.setting-row select{width:100%;border:1px solid var(--line);padding:7px;border-radius:4px}.report-card{padding:14px}.report-card h3{margin:0 0 3px;font-size:.8rem}.report-card p{font-size:.61rem;color:var(--muted);min-height:34px}.report-card button{width:100%}.toast{position:fixed;right:18px;bottom:18px;background:var(--navy);color:white;padding:10px 14px;border-radius:5px;font-size:.65rem;box-shadow:0 8px 30px rgba(0,0,0,.2);z-index:50;opacity:0;transform:translateY(12px);pointer-events:none;transition:.2s}.toast.show{opacity:1;transform:none}
+    @media(max-width:1250px){.overview-top{grid-template-columns:1fr}.overview-mid{grid-template-columns:1fr 1fr}.overview-low{grid-template-columns:1fr}.site-cards{grid-template-columns:1fr 1fr}.big-kpis{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:820px){.top-search,.date-box,.user-info{display:none}.shell{grid-template-columns:54px}.nav button{height:60px;font-size:0}.nav .ico{font-size:1rem}.main{padding:8px}.overview-mid,.grid2,.grid3{grid-template-columns:1fr}.weather-now{grid-template-columns:repeat(3,1fr)}.dry-box{grid-column:1/-1}.control-grid{grid-template-columns:1fr 1fr}.site-cards{grid-template-columns:1fr}.big-kpis{grid-template-columns:1fr 1fr}}
   </style>
 </head>
 <body>
-  <main class="shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brandmark" aria-hidden="true">
-          <svg viewBox="0 0 32 32" fill="none"><path d="M16 3C10 11 6 15 6 21a10 10 0 0 0 20 0c0-6-4-10-10-18Z" stroke="currentColor" stroke-width="2"/><path d="M9 21h4l2-6 4 10 2-4h3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-        <div><p class="eyebrow">Water-aware operations</p><h1>AquaCompute Command Center</h1></div>
-      </div>
-      <div class="system-status"><i class="pulse"></i><span>24 sensors online · Forecast refreshed <b id="refresh-age">just now</b></span></div>
-    </header>
-
-    <section class="scenario-bar" aria-labelledby="scenario-title">
-      <div class="bar-head"><h2 id="scenario-title">Scenario simulator</h2><span class="clock" id="clock">KUL · 16:20 MYT</span></div>
-      <div class="scenario-list" id="scenario-list"></div>
-    </section>
-
-    <div class="dashboard">
-      <aside class="stack">
-        <section class="panel" aria-labelledby="inputs-title">
-          <div class="panel-head"><div><h2 id="inputs-title">Live conditions</h2><p>Adjust inputs to recalculate</p></div><span class="chip">LIVE</span></div>
-          <div class="panel-body">
-            <div class="control">
-              <div class="control-label"><label for="temperature">Ambient temperature</label><output id="temperature-out">31°C</output></div>
-              <input id="temperature" type="range" min="24" max="44" value="31" step="1"><div class="range-scale"><span>24°C</span><span>44°C</span></div>
-            </div>
-            <div class="control">
-              <div class="control-label"><label for="tank">Makeup tank level</label><output id="tank-out">72%</output></div>
-              <input id="tank" type="range" min="10" max="100" value="72" step="1"><div class="range-scale"><span>Critical</span><span>Full</span></div>
-            </div>
-            <div class="control">
-              <div class="control-label"><label for="reclaimed">Reclaimed supply</label><output id="reclaimed-out">68%</output></div>
-              <input id="reclaimed" type="range" min="0" max="100" value="68" step="1"><div class="range-scale"><span>Potable-heavy</span><span>Reuse-first</span></div>
-            </div>
-            <div class="control">
-              <div class="control-label"><label for="makeup">Observed makeup flow</label><output id="makeup-out">5,860 L/h</output></div>
-              <input id="makeup" type="range" min="3800" max="9000" value="5860" step="20"><div class="range-scale"><span>3.8k</span><span>9.0k L/h</span></div>
-            </div>
-            <div class="select-row">
-              <label class="field">Community status<select id="community"><option value="normal">Normal</option><option value="watch">Watch</option><option value="restriction">Restriction</option><option value="emergency">Emergency</option></select></label>
-              <label class="field">Leak signal<select id="leak"><option value="none">None</option><option value="watch">Watch</option><option value="high">High</option></select></label>
-            </div>
-            <button class="run-button" id="run-model" type="button">Run scheduler model</button>
-          </div>
-        </section>
-
-        <section class="panel" aria-labelledby="telemetry-title">
-          <div class="panel-head"><div><h2 id="telemetry-title">Physical telemetry</h2><p>IoT edge gateway · Site JHR-01</p></div></div>
-          <div class="panel-body">
-            <div class="telemetry-grid">
-              <div class="sensor"><span class="id">FM-MU · flow</span><b id="tel-makeup">5,860 L/h</b><small>Makeup water</small></div>
-              <div class="sensor"><span class="id">LT-01 · level</span><b id="tel-tank">72%</b><small>Tank reserve</small></div>
-              <div class="sensor"><span class="id">EC-CT · quality</span><b id="tel-tds">1,420 ppm</b><small>Cooling basin TDS</small></div>
-              <div class="sensor"><span class="id">PS-COND · pressure</span><b id="tel-pressure">3.8 bar</b><small>Condenser loop</small></div>
-            </div>
-            <div class="source-mix">
-              <div class="source-line"><span>Water source mix</span><strong id="reuse-label">68% reclaimed</strong></div>
-              <div class="mixbar" aria-label="Water source mix"><i class="mix-reclaimed" id="mix-reclaimed"></i><i class="mix-potable" id="mix-potable"></i><i class="mix-ground" id="mix-ground"></i></div>
-              <div class="mixlabels"><span><i class="dot" style="background:var(--aqua)"></i>Reclaimed</span><span><i class="dot" style="background:var(--blue)"></i>Potable</span><span><i class="dot" style="background:var(--amber)"></i>Groundwater</span></div>
-            </div>
-          </div>
-        </section>
-      </aside>
-
-      <section class="stack">
-        <article class="panel decision-hero" id="decision-card" aria-live="polite">
-          <div class="decision-top"><span class="decision-kicker">Scheduler recommendation</span><div class="risk-index"><b id="risk-score">18</b><span>Water risk / 100</span></div></div>
-          <div class="decision-main"><div class="decision-icon" id="decision-icon" aria-hidden="true"></div><div class="decision-copy"><h2 id="decision-title">Run now</h2><p id="decision-reason">Water and GPU capacity remain safe through the full job window.</p></div></div>
-          <div class="decision-meta"><span class="chip">Job <strong id="job-id">TRN-4812</strong></span><span class="chip">Start <strong id="start-time">16:30</strong></span><span class="chip">Finish <strong id="finish-time">19:30</strong></span><span class="chip">Confidence <strong id="confidence">94%</strong></span></div>
-          <div class="metrics">
-            <div class="metric"><span>Predicted demand</span><b id="demand-value">5,980 L/h</b><small>during workload</small></div>
-            <div class="metric"><span>Safe capacity</span><b id="capacity-value">7,450 L/h</b><small>policy-adjusted</small></div>
-            <div class="metric"><span>Water balance</span><b id="balance-value">+1,470 L/h</b><small>supply − demand</small></div>
-            <div class="metric"><span>Unaccounted loss</span><b id="loss-value">0 L/h</b><small>actual − expected</small></div>
-          </div>
-        </article>
-
-        <section class="panel" aria-labelledby="forecast-title">
-          <div class="panel-head"><div><h2 id="forecast-title">12-hour water forecast</h2><p>Demand, safe operating capacity and scheduled compute window</p></div><span class="chip" id="forecast-status">NO DEFICIT</span></div>
-          <div class="forecast-wrap"><svg id="forecast" viewBox="0 0 760 210" role="img" aria-label="Forecast of water demand and capacity over 12 hours"></svg></div>
-          <div class="chart-legend"><span class="legend-key"><i class="legend-line"></i>Demand</span><span class="legend-key"><i class="legend-line capacity"></i>Safe capacity</span><span class="legend-key"><i class="legend-block"></i>Job window</span></div>
-        </section>
-
-        <section class="panel" aria-labelledby="rules-title">
-          <div class="panel-head"><div><h2 id="rules-title">Decision trace</h2><p>Why this action wins</p></div><span class="chip">RULE + FORECAST</span></div>
-          <div class="panel-body"><ul class="rule-list" id="rule-list"></ul></div>
-        </section>
-      </section>
-
-      <aside class="stack right-stack">
-        <section class="panel" aria-labelledby="workload-title">
-          <div class="panel-head"><div><h2 id="workload-title">Workload queue</h2><p>Selected job characteristics</p></div><span class="chip" id="priority-chip">FLEXIBLE</span></div>
-          <div class="panel-body">
-            <label class="field">Queued workload<select id="workload"><option value="training">TRN-4812 · Model training</option><option value="analytics">BAT-1029 · Batch analytics</option><option value="inference">INF-0071 · Critical inference</option><option value="backup">BKP-2290 · Nightly backup</option></select></label>
-            <div class="telemetry-grid" style="margin-top:12px">
-              <div class="sensor"><span class="id">GPU request</span><b id="job-gpu">96 × H100</b><small id="gpu-status">128 available</small></div>
-              <div class="sensor"><span class="id">Runtime</span><b id="job-runtime">3.0 h</b><small id="job-deadline">Deadline 04:00</small></div>
-              <div class="sensor"><span class="id">Added heat</span><b id="job-heat">+0.84 MW</b><small>IT load estimate</small></div>
-              <div class="sensor"><span class="id">Added water</span><b id="job-water">+1,280 L/h</b><small>Cooling demand</small></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel" aria-labelledby="sites-title">
-          <div class="panel-head"><div><h2 id="sites-title">Candidate sites</h2><p>Compute + water + SLA feasibility</p></div></div>
-          <div class="panel-body"><div class="site-compare" id="site-compare"></div></div>
-        </section>
-
-        <section class="panel" aria-labelledby="loss-title">
-          <div class="panel-head"><div><h2 id="loss-title">Loss & reuse manager</h2><p>Expected makeup = evaporation + blowdown + drift</p></div></div>
-          <div class="panel-body">
-            <div class="telemetry-grid">
-              <div class="sensor"><span class="id">Expected</span><b id="expected-loss">5,870 L/h</b><small>Model baseline</small></div>
-              <div class="sensor"><span class="id">Residual</span><b id="residual-loss">−10 L/h</b><small id="loss-status">Within tolerance</small></div>
-            </div>
-          </div>
-        </section>
-      </aside>
-    </div>
-
-    <section class="panel loop-panel" aria-labelledby="loop-title">
-      <div class="panel-head"><div><h2 id="loop-title">Closed-loop control path</h2><p>Physical water → decision → execution → measured response</p></div><span class="chip">30 SEC CYCLE</span></div>
-      <div class="loop" id="loop"></div>
-    </section>
-    <footer class="footer-note"><span>Prototype model · Synthetic operational data · Values are illustrative</span><span>Water balance = safe capacity − predicted demand</span></footer>
-  </main>
-
+  <header class="top"><div class="logo">xylem<small>Let's Solve Water</small></div><div class="product"><b>AQUASHIFT Dashboard</b><span>Water-Aware Data Center Operations</span></div><div class="top-search"><span class="search-icon">⌕</span><input id="search" placeholder="Search sites, assets, or cases..."></div><div class="date-box">▣ <span id="date-range">Today · Live Operations</span></div><div class="live"><i></i><span>Live<br><small>Updated now</small></span></div><button class="icon-btn" id="refresh" title="Refresh">↻</button><div class="user"><div class="avatar">JD</div><div class="user-info"><b>John Tan</b><span>Operations Manager</span></div></div></header>
+  <div class="shell"><aside class="side"><nav class="nav" id="nav"></nav></aside><main class="main" id="app"></main></div><div class="toast" id="toast"></div>
   <script>
-    const fmt = new Intl.NumberFormat('en-MY');
-    const scenarios = {
-      stable: { name:'Stable operations', note:'Normal reserve', temp:31, tank:72, reclaimed:68, makeup:5860, community:'normal', leak:'none', alt:true, future:'stable', decision:'RUN NOW' },
-      heat: { name:'Peak heat', note:'42°C dry bulb', temp:42, tank:54, reclaimed:39, makeup:7100, community:'watch', leak:'none', alt:false, future:'better', decision:'DELAY' },
-      reuse: { name:'Reuse recovery', note:'Supply returns 22:00', temp:37, tank:41, reclaimed:22, makeup:6600, community:'restriction', leak:'none', alt:false, future:'better', decision:'DELAY' },
-      leak: { name:'Pipe leak', note:'LD-01 + pressure drop', temp:34, tank:39, reclaimed:58, makeup:7820, community:'watch', leak:'high', alt:true, future:'stable', decision:'MOVE SITE' },
-      emergency: { name:'Community emergency', note:'Flexible loads blocked', temp:38, tank:33, reclaimed:18, makeup:6950, community:'emergency', leak:'watch', alt:false, future:'poor', decision:'LIMIT LOAD' },
-      multisite: { name:'Multi-site failure', note:'No feasible placement', temp:43, tank:19, reclaimed:9, makeup:8460, community:'emergency', leak:'high', alt:false, future:'poor', workload:'inference', decision:'ESCALATE' }
-    };
-    const workloads = {
-      training: { id:'TRN-4812', label:'Model training', gpu:96, available:128, runtime:3, deadline:'04:00', heat:.84, water:1280, flexible:true },
-      analytics: { id:'BAT-1029', label:'Batch analytics', gpu:48, available:128, runtime:1.5, deadline:'22:30', heat:.39, water:660, flexible:true },
-      inference: { id:'INF-0071', label:'Critical inference', gpu:64, available:80, runtime:2, deadline:'18:45', heat:.61, water:920, flexible:false },
-      backup: { id:'BKP-2290', label:'Nightly backup', gpu:16, available:128, runtime:4, deadline:'06:00', heat:.18, water:310, flexible:true }
-    };
-    const loops = [
-      ['01','Sense','Flow · level · leak'],['02','Monitor','Current water state'],['03','Forecast','Demand + supply'],['04','Assess risk','Balance + policy'],['05','Schedule','Run · delay · move'],['06','Execute','Kubernetes / SLURM'],['07','Learn','Actual vs predicted']
-    ];
-    const state = { scenario:'stable', alt:true, future:'stable' };
-    const els = Object.fromEntries([...document.querySelectorAll('[id]')].map(el => [el.id, el]));
-
-    function icon(type) {
-      const icons = {
-        'RUN NOW':'<svg viewBox="0 0 48 48" fill="none"><path d="m18 12 18 12-18 12V12Z" fill="currentColor"/></svg>',
-        'DELAY':'<svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="15" stroke="currentColor" stroke-width="4"/><path d="M24 15v10l7 4" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>',
-        'MOVE SITE':'<svg viewBox="0 0 48 48" fill="none"><path d="M24 42s13-11 13-23a13 13 0 1 0-26 0c0 12 13 23 13 23Z" stroke="currentColor" stroke-width="3"/><circle cx="24" cy="19" r="4" fill="currentColor"/></svg>',
-        'LIMIT LOAD':'<svg viewBox="0 0 48 48" fill="none"><path d="M10 35V25h6v10h-6Zm11 0V18h6v17h-6Zm11 0V10h6v25h-6Z" fill="currentColor"/><path d="M7 39h34" stroke="currentColor" stroke-width="3"/></svg>',
-        'ESCALATE':'<svg viewBox="0 0 48 48" fill="none"><path d="M24 7 43 40H5L24 7Z" stroke="currentColor" stroke-width="3"/><path d="M24 18v10M24 34v1" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>'
-      }; return icons[type];
-    }
-
-    function renderScenarioButtons() {
-      els['scenario-list'].innerHTML = Object.entries(scenarios).map(([key,s]) => `<button class="scenario ${key===state.scenario?'active':''}" data-scenario="${key}"><b>${s.name}</b><span>${s.note}</span></button>`).join('');
-      els['scenario-list'].querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => applyScenario(btn.dataset.scenario)));
-    }
-    function applyScenario(key) {
-      const s = scenarios[key]; Object.assign(state,{scenario:key,alt:s.alt,future:s.future});
-      els.temperature.value=s.temp; els.tank.value=s.tank; els.reclaimed.value=s.reclaimed; els.makeup.value=s.makeup; els.community.value=s.community; els.leak.value=s.leak; els.workload.value=s.workload||'training';
-      renderScenarioButtons(); calculate(true);
-    }
-    function waterInputs() { return { temp:+els.temperature.value, tank:+els.tank.value, reclaimed:+els.reclaimed.value, makeup:+els.makeup.value, community:els.community.value, leak:els.leak.value, job:workloads[els.workload.value] }; }
-
-    function calculate(animate=false) {
-      const x=waterInputs();
-      const thermal=Math.max(0,x.temp-30)*118;
-      const reusePenalty=(100-x.reclaimed)*7.2;
-      const base=4300+thermal+reusePenalty;
-      const demand=Math.round((base+x.job.water)/10)*10;
-      let capacity=8000-(100-x.tank)*9-(x.community==='watch'?320:x.community==='restriction'?900:x.community==='emergency'?1700:0)-(x.leak==='watch'?360:x.leak==='high'?1450:0);
-      capacity=Math.round(capacity/10)*10;
-      const expected=Math.round((4850+thermal*.55+Math.max(0,50-x.reclaimed)*5)/10)*10;
-      const residual=x.makeup-expected;
-      const leakHigh=x.leak==='high'||residual>1050;
-      const unsafe=demand>capacity||x.tank<28||x.community==='emergency';
-      const projectedDeficit=demand>capacity-450||x.temp>=40;
-      let decision='RUN NOW', reason='Water and GPU capacity remain safe through the full job window.', start='16:30';
-      if (!x.job.flexible && unsafe && !state.alt) { decision='ESCALATE'; reason='Critical workload has no site that satisfies water, infrastructure and deadline constraints.'; }
-      else if (leakHigh && state.alt) { decision='MOVE SITE'; reason='Abnormal water loss reduces local safe capacity; Selangor can meet compute, water and SLA constraints.'; start='17:05'; }
-      else if ((unsafe||projectedDeficit) && state.alt && x.community!=='normal') { decision='MOVE SITE'; reason='Local water risk is elevated while the Selangor site remains feasible within the workload SLA.'; start='17:05'; }
-      else if ((unsafe||projectedDeficit) && state.future==='better' && x.job.flexible) { decision='DELAY'; reason='Current water risk is high; the 22:00 window restores reclaimed supply and remains before the deadline.'; start='22:00'; }
-      else if (unsafe||leakHigh||x.community==='restriction'||x.community==='emergency') { decision='LIMIT LOAD'; reason='Protect community reserve and stop new flexible workload admission until capacity recovers.'; start='HOLD'; }
-      else if (projectedDeficit && state.alt) { decision='MOVE SITE'; reason='Projected peak enters the safety margin; a lower-risk site can finish within the SLA.'; start='17:05'; }
-      const risk=Math.min(99,Math.max(8,Math.round(12+(x.temp-30)*2.1+(100-x.tank)*.26+(100-x.reclaimed)*.13+(x.community==='watch'?9:x.community==='restriction'?20:x.community==='emergency'?34:0)+(leakHigh?25:x.leak==='watch'?8:0)+(demand>capacity?15:0))));
-      const colors={'RUN NOW':['#24d6c7','36, 214, 199'],'DELAY':['#f5ba45','245, 186, 69'],'MOVE SITE':['#55a9ff','85, 169, 255'],'LIMIT LOAD':['#ff7a45','255, 122, 69'],'ESCALATE':['#ff5d6c','255, 93, 108']};
-      document.documentElement.style.setProperty('--decision',colors[decision][0]); document.documentElement.style.setProperty('--decision-rgb',colors[decision][1]);
-      els['decision-title'].textContent=decision; els['decision-reason'].textContent=reason; els['decision-icon'].innerHTML=icon(decision); els['risk-score'].textContent=risk;
-      els['start-time'].textContent=start; els['finish-time'].textContent=start==='HOLD'?'—':start==='22:00'?addHours(start,x.job.runtime):addHours(start,x.job.runtime);
-      els.confidence.textContent=(decision==='ESCALATE'?88:Math.max(84,98-Math.round(risk/12)))+'%';
-      els['demand-value'].textContent=fmt.format(demand)+' L/h'; els['capacity-value'].textContent=fmt.format(capacity)+' L/h';
-      const balance=capacity-demand; els['balance-value'].textContent=(balance>=0?'+':'−')+fmt.format(Math.abs(balance))+' L/h'; els['balance-value'].style.color=balance<0?'var(--red)':'var(--aqua)';
-      els['loss-value'].textContent=(residual>0?'+':'−')+fmt.format(Math.abs(residual))+' L/h';
-      updateInputs(x,expected,residual,leakHigh); updateWorkload(x.job); renderRules({decision,unsafe,projectedDeficit,leakHigh,balance,x}); renderSites(decision,x,risk); renderForecast(x,demand,capacity,decision); renderLoop(decision);
-      els['forecast-status'].textContent=balance<0?'DEFICIT '+fmt.format(Math.abs(balance))+' L/h':projectedDeficit?'MARGIN WATCH':'NO DEFICIT';
-      if(animate){ els['decision-card'].classList.remove('flash'); void els['decision-card'].offsetWidth; els['decision-card'].classList.add('flash'); }
-    }
-    function updateInputs(x,expected,residual,leakHigh){
-      els['temperature-out'].textContent=x.temp+'°C'; els['tank-out'].textContent=x.tank+'%'; els['reclaimed-out'].textContent=x.reclaimed+'%'; els['makeup-out'].textContent=fmt.format(x.makeup)+' L/h';
-      els['tel-makeup'].textContent=fmt.format(x.makeup)+' L/h'; els['tel-tank'].textContent=x.tank+'%'; els['tel-tds'].textContent=fmt.format(1180+Math.round((100-x.reclaimed)*7))+' ppm'; els['tel-pressure'].textContent=(x.leak==='high'?'2.7':x.leak==='watch'?'3.3':'3.8')+' bar';
-      const ground=x.reclaimed<20?8:4, potable=100-x.reclaimed-ground; els['mix-reclaimed'].style.width=x.reclaimed+'%'; els['mix-potable'].style.width=potable+'%'; els['mix-ground'].style.width=ground+'%'; els['reuse-label'].textContent=x.reclaimed+'% reclaimed';
-      els['expected-loss'].textContent=fmt.format(expected)+' L/h'; els['residual-loss'].textContent=(residual>=0?'+':'−')+fmt.format(Math.abs(residual))+' L/h'; els['loss-status'].textContent=leakHigh?'Abnormal loss':'Within tolerance'; els['residual-loss'].style.color=leakHigh?'var(--red)':'var(--text)';
-    }
-    function updateWorkload(j){
-      els['job-id'].textContent=j.id; els['job-gpu'].textContent=j.gpu+' × H100'; els['gpu-status'].textContent=j.available+' available'; els['job-runtime'].textContent=j.runtime.toFixed(1)+' h'; els['job-deadline'].textContent='Deadline '+j.deadline; els['job-heat'].textContent='+'+j.heat.toFixed(2)+' MW'; els['job-water'].textContent='+'+fmt.format(j.water)+' L/h'; els['priority-chip'].textContent=j.flexible?'FLEXIBLE':'CRITICAL';
-    }
-    function renderRules(c){
-      const rows=[
-        [c.x.job.gpu<=c.x.job.available?'pass':'fail','Compute capacity',`${c.x.job.gpu} GPUs requested · ${c.x.job.available} available`],
-        [c.balance>=0?'pass':'fail','Current water capacity',c.balance>=0?`${fmt.format(c.balance)} L/h safety margin`:`${fmt.format(Math.abs(c.balance))} L/h predicted deficit`],
-        [c.leakHigh?'fail':c.x.leak==='watch'?'warn':'pass','Loss anomaly',c.leakHigh?'Residual and sensor evidence exceed threshold':c.x.leak==='watch'?'One sensor requires observation':'Actual makeup matches expected model'],
-        [c.x.community==='normal'?'pass':c.x.community==='watch'?'warn':'fail','Community reserve',`${title(c.x.community)} operating condition`],
-        [c.projectedDeficit?'warn':'pass','Full job window',c.projectedDeficit?'Forecast approaches safe capacity':'Non-negative balance through completion'],
-        [c.decision==='ESCALATE'?'fail':c.decision==='MOVE SITE'?'warn':'pass','Feasible action',c.decision==='MOVE SITE'?'Alternative site verified':c.decision==='ESCALATE'?'No feasible site or time window':'Deadline remains achievable']
-      ];
-      els['rule-list'].innerHTML=rows.map(r=>`<li><i class="rule-state ${r[0]}">${r[0]==='pass'?'✓':r[0]==='fail'?'!':'~'}</i><div><b>${r[1]}</b><span>${r[2]}</span></div></li>`).join('');
-    }
-    function renderSites(decision,x,risk){
-      const local=Math.min(99,risk), altRisk=Math.min(88,Math.max(14,Math.round(risk*.42)));
-      const sites=[['Johor JHR-01',`${x.job.available} GPUs · ${x.reclaimed}% reclaimed`,local,decision!=='MOVE SITE'&&decision!=='ESCALATE'],['Selangor SGR-02',state.alt?'112 GPUs · 76% reclaimed':'Maintenance · unavailable',state.alt?altRisk:99,decision==='MOVE SITE'],['Singapore SGP-03','Residency constraint · blocked',64,false]];
-      els['site-compare'].innerHTML=sites.map(s=>`<div class="site-row ${s[3]?'selected':''}"><div><b>${s[0]}</b><span>${s[1]}</span></div><div class="site-score" style="color:${s[2]>75?'var(--red)':s[2]>48?'var(--amber)':'var(--aqua)'}">${s[2]}<span>risk</span></div></div>`).join('');
-    }
-    function renderForecast(x,demand,capacity,decision){
-      const w=760,h=210,left=45,right=16,top=12,bottom=28,plotW=w-left-right,plotH=h-top-bottom,n=12;
-      const futureBoost=state.future==='better'?-1150:state.future==='poor'?500:0;
-      const ds=Array.from({length:n},(_,i)=>Math.max(3300, demand + Math.sin(i*.72)*420 + (i>4?futureBoost*(i-4)/7:0) - (i>7?300:0)));
-      const cs=Array.from({length:n},(_,i)=>capacity + (i>5&&state.future==='better'?700:0) - (x.community==='emergency'?i*55:0));
-      const max=Math.max(...ds,...cs,9000), min=2500, y=v=>top+plotH-(v-min)/(max-min)*plotH, px=i=>left+i*(plotW/(n-1));
-      const grid=[3000,5000,7000,9000].filter(v=>v<=max+400).map(v=>`<g><line x1="${left}" y1="${y(v)}" x2="${w-right}" y2="${y(v)}" stroke="#1e3a52"/><text x="${left-8}" y="${y(v)+4}" text-anchor="end" fill="#718da2" font-size="10">${v/1000}k</text></g>`).join('');
-      const startIndex=decision==='DELAY'?6:decision==='LIMIT LOAD'||decision==='ESCALATE'?-1:decision==='MOVE SITE'?1:0, jobWidth=Math.max(1,x.job.runtime)*(plotW/11);
-      const jobBand=startIndex>=0?`<rect x="${Math.max(left,px(startIndex)-5)}" y="${top}" width="${Math.min(jobWidth,w-right-px(startIndex)+5)}" height="${plotH}" fill="rgba(245,186,69,.09)" stroke="rgba(245,186,69,.2)"/>`:'';
-      const path=a=>a.map((v,i)=>(i?'L':'M')+px(i).toFixed(1)+','+y(v).toFixed(1)).join(' ');
-      const labels=Array.from({length:n},(_,i)=>i%2===0?`<text x="${px(i)}" y="${h-7}" text-anchor="middle" fill="#718da2" font-size="10">${String((16+i)%24).padStart(2,'0')}:00</text>`:'').join('');
-      const alerts=ds.map((v,i)=>v>cs[i]?`<circle cx="${px(i)}" cy="${y(v)}" r="4" fill="#ff5d6c"/>`:'').join('');
-      els.forecast.innerHTML=`${jobBand}${grid}<path d="${path(cs)}" fill="none" stroke="#55a9ff" stroke-width="2" stroke-dasharray="5 5"/><path d="${path(ds)}" fill="none" stroke="#24d6c7" stroke-width="3"/><path d="${path(ds)} L ${px(n-1)},${top+plotH} L ${left},${top+plotH} Z" fill="rgba(36,214,199,.06)"/>${alerts}${labels}<text x="8" y="14" fill="#718da2" font-size="9">L/h</text>`;
-    }
-    function renderLoop(decision){ const active=decision==='RUN NOW'?5:decision==='ESCALATE'?4:4; els.loop.innerHTML=loops.map((s,i)=>`<div class="loop-step ${i===active?'active':''}"><span class="num">${s[0]}</span><b>${s[1]}</b><span>${s[2]}</span></div>`).join(''); }
-    function addHours(t,h){ const [hh,mm]=t.split(':').map(Number), total=hh*60+mm+h*60; return String(Math.floor(total/60)%24).padStart(2,'0')+':'+String(total%60).padStart(2,'0'); }
-    function title(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
-    ['temperature','tank','reclaimed','makeup','community','leak'].forEach(id=>els[id].addEventListener('input',()=>{ state.scenario='custom'; renderScenarioButtons(); calculate(); }));
-    els.workload.addEventListener('change',()=>calculate(true)); els['run-model'].addEventListener('click',()=>calculate(true));
-    function updateClock(){ const now=new Date(); els.clock.textContent='KUL · '+new Intl.DateTimeFormat('en-MY',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Kuala_Lumpur'}).format(now)+' MYT'; }
-    function registerWebMCP(){
-      const context=document.modelContext;
-      if(!context?.registerTool) return;
-      try {
-        context.registerTool({
-          name:'simulate_aquacompute_scenario',
-          title:'Simulate AquaCompute scenario',
-          description:'Apply one operational scenario to the visible dashboard and return the water-aware scheduler recommendation.',
-          inputSchema:{type:'object',properties:{scenario:{type:'string',enum:Object.keys(scenarios)}},required:['scenario'],additionalProperties:false},
-          annotations:{readOnlyHint:false,untrustedContentHint:false},
-          execute(input){
-            if(!input||typeof input.scenario!=='string'||!scenarios[input.scenario]) throw new Error('Unknown scenario');
-            applyScenario(input.scenario);
-            return {scenario:input.scenario,decision:els['decision-title'].textContent,riskScore:Number(els['risk-score'].textContent),start:els['start-time'].textContent,reason:els['decision-reason'].textContent};
-          }
-        });
-      } catch(error) { console.warn('WebMCP registration unavailable',error); }
-    }
-    renderScenarioButtons(); renderLoop('RUN NOW'); calculate(); updateClock(); registerWebMCP(); setInterval(updateClock,30000);
+    const fmt=new Intl.NumberFormat('en-MY');
+    const pages=[['overview','⌂','Overview'],['sites','♟','Sites'],['monitoring','⌁','Monitoring'],['analytics','⌁','Analytics'],['scheduler','▦','Scheduler'],['reports','▤','Reports'],['cases','◆','Cases'],['settings','⚙','Settings']];
+    const sites={jhr:{id:'Johor DC1',code:'JHR-01',place:'Johor, Malaysia',pos:'p-jhr',status:'Online',risk:'Medium',riskN:43,mode:'Hybrid',wue:.42,delta:12,temp:32,tank:76,reuse:68,makeup:6060,community:'watch',leak:'watch',gpu:128,alt:true,future:'better'},sgr:{id:'Selangor DC1',code:'SGR-02',place:'Selangor, Malaysia',pos:'p-sgr',status:'Online',risk:'Low',riskN:18,mode:'Dry Run',wue:.30,delta:28,temp:28,tank:86,reuse:76,makeup:4920,community:'normal',leak:'none',gpu:112,alt:true,future:'stable'},pen:{id:'Penang DC1',code:'PNG-01',place:'Penang, Malaysia',pos:'p-pen',status:'Online',risk:'Low',riskN:22,mode:'Dry Run',wue:.32,delta:18,temp:30,tank:82,reuse:72,makeup:5150,community:'normal',leak:'none',gpu:96,alt:true,future:'stable'},sgp:{id:'Singapore DC1',code:'SGP-03',place:'Singapore',pos:'p-sgp',status:'Online',risk:'Medium',riskN:56,mode:'Hybrid',wue:.38,delta:10,temp:34,tank:48,reuse:30,makeup:6940,community:'restriction',leak:'none',gpu:80,alt:true,future:'poor'}};
+    const jobs={training:{id:'JOB-208',type:'AI Training',site:'Johor → Selangor',runtime:8,flex:'High',impact:'High',deadline:'23:00',gpu:96,available:128,water:1280,critical:false},batch:{id:'JOB-317',type:'Batch Processing',site:'Singapore',runtime:4,flex:'Medium',impact:'Medium',deadline:'23:00',gpu:48,available:80,water:660,critical:false},analytics:{id:'JOB-442',type:'Analytics',site:'Penang',runtime:2,flex:'High',impact:'Low',deadline:'06:00',gpu:32,available:96,water:420,critical:false},model:{id:'JOB-519',type:'Model Training',site:'Johor',runtime:6,flex:'Low',impact:'High',deadline:'18:00',gpu:80,available:128,water:1120,critical:false},etl:{id:'JOB-621',type:'Data ETL',site:'Selangor',runtime:3,flex:'Medium',impact:'Medium',deadline:'00:00',gpu:24,available:112,water:350,critical:false},inference:{id:'INF-071',type:'Critical Inference',site:'Johor',runtime:2,flex:'None',impact:'Medium',deadline:'18:45',gpu:64,available:80,water:920,critical:true}};
+    const alerts=[{sev:'Critical',type:'Water Stress',site:'Johor',summary:'High water demand approaching limit (18:00–22:00)',owner:'A. Rahman',status:'Open'},{sev:'High',type:'Reclaimed Supply',site:'Singapore',summary:'Reclaimed water supply drop (−30%)',owner:'L. Chen',status:'Investigating'},{sev:'Medium',type:'Leak Investigation',site:'Johor',summary:'Cooling tower basin anomaly (CT-1B)',owner:'S. Kumar',status:'Open'},{sev:'Medium',type:'Scheduler Action',site:'Johor',summary:'JOB-208 pending water-aware decision',owner:'A. Rahman',status:'Pending'},{sev:'Low',type:'Sensor Offline',site:'Penang',summary:'Flow sensor offline (FW-3)',owner:'T. Lim',status:'Resolved'}];
+    const t=(id,expect,name,job,temp,tank,reuse,makeup,community='normal',leak='none',alt=true,future='stable')=>({id,expect,name,job,temp,tank,reuse,makeup,community,leak,alt,future});
+    const tests=[t('TC-01','RUN NOW','Stable model training','training',31,72,68,5860),t('TC-02','RUN NOW','Cool-night backup','etl',27,88,82,4500),t('TC-03','RUN NOW','Critical inference — safe','inference',30,80,70,5400),t('TC-04','RUN NOW','High-reuse analytics','analytics',32,75,90,5000),t('TC-05','DELAY','Peak-heat recovery','training',42,54,39,7100,'watch','none',false,'better'),t('TC-06','DELAY','Reclaimed supply returns','training',37,41,22,6600,'restriction','none',false,'better'),t('TC-07','DELAY','Tank refill forecast','batch',35,24,55,6000,'watch','none',false,'better'),t('TC-08','DELAY','Restriction clears later','training',38,44,25,6800,'restriction','none',false,'better'),t('TC-09','MOVE SITE','Confirmed pipe leak','training',34,39,58,7820,'watch','high',true),t('TC-10','MOVE SITE','Potable-heavy restriction','training',36,55,10,6900,'restriction','none',true),t('TC-11','MOVE SITE','Forecast thermal peak','training',43,60,60,6500),t('TC-12','MOVE SITE','Critical workload reroute','inference',41,35,30,7200,'normal','watch',true),t('TC-13','LIMIT LOAD','Community emergency','etl',36,33,18,6950,'emergency','watch',false,'poor'),t('TC-14','LIMIT LOAD','Restriction without recovery','training',38,44,25,6800,'restriction','none',false,'poor'),t('TC-15','LIMIT LOAD','Leak — no alternative','training',33,50,55,8000,'watch','high',false),t('TC-16','LIMIT LOAD','Thermal margin exhausted','training',40,61,60,6600,'normal','none',false,'poor'),t('TC-17','ESCALATE','Critical low-water reserve','inference',42,18,20,7500,'restriction','none',false,'poor'),t('TC-18','ESCALATE','Critical workload + leak','inference',34,42,55,8200,'normal','high',false),t('TC-19','ESCALATE','Critical community emergency','inference',39,30,15,7900,'emergency','watch',false,'poor'),t('TC-20','ESCALATE','Multi-site thermal failure','inference',44,50,40,7400,'watch','none',false),t('TC-21','RUN NOW','Residual within tolerance','etl',30,80,70,5000),t('TC-22','MOVE SITE','Hidden loss from residual','training',31,65,60,7500),t('TC-23','RUN NOW','Single sensor watch','training',31,70,70,5800,'normal','watch',true),t('TC-24','RUN NOW','Community watch — safe','analytics',33,70,75,5600,'watch','none',true)];
+    const state={page:'overview',site:'jhr',job:'training',cooling:'AUTO',caseTab:'alerts',filter:'ALL',activeTest:null,tests:new Map(),alertStatus:alerts.map(a=>a.status),sim:null,settings:JSON.parse(localStorage.getItem('aqua-settings')||'{"dryTemp":29,"riskWatch":45,"leakResidual":1050,"minTank":28}')};
+    const el=id=>document.getElementById(id), site=()=>sites[state.site], current=()=>state.sim||site();
+    function cooling(x){if(state.cooling!=='AUTO')return state.cooling;if(x.temp<=state.settings.dryTemp)return'DRY RUN';if(x.temp<=35)return'HYBRID';return'WET'}
+    function evaluate(x=current(),jobKey=state.job){const j=jobs[jobKey],thermal=Math.max(0,x.temp-30)*118,reusePenalty=(100-x.reuse)*7.2,demand=Math.round((4300+thermal+reusePenalty+j.water)/10)*10;let capacity=8000-(100-x.tank)*9-(x.community==='watch'?320:x.community==='restriction'?900:x.community==='emergency'?1700:0)-(x.leak==='watch'?360:x.leak==='high'?1450:0);capacity=Math.round(capacity/10)*10;const expected=Math.round((4850+thermal*.55+Math.max(0,50-x.reuse)*5)/10)*10,residual=x.makeup-expected,leakHigh=x.leak==='high'||residual>state.settings.leakResidual,unsafe=demand>capacity||x.tank<state.settings.minTank||x.community==='emergency',projected=demand>capacity-450||x.temp>=40;let decision='RUN NOW',reason='Water and compute capacity remain safe through the full workload window.',start='Now';if(j.critical&&(unsafe||leakHigh||projected)&&!x.alt){decision='ESCALATE';reason='Critical workload has no site satisfying water, infrastructure and SLA constraints.'}else if(j.critical&&(unsafe||leakHigh||projected)&&x.alt){decision='MOVE SITE';reason='Critical workload cannot delay; an alternative site meets all constraints.';start='17:05'}else if(leakHigh&&x.alt){decision='MOVE SITE';reason='Abnormal water loss derates local capacity; move compute to the verified site.';start='17:05'}else if((unsafe||projected)&&x.alt&&x.community!=='normal'){decision='MOVE SITE';reason='Local water risk is elevated while another site remains feasible.';start='17:05'}else if((unsafe||projected)&&x.future==='better'&&!j.critical){decision='DELAY';reason='A lower-risk water window is forecast before the deadline.';start='22:00'}else if(unsafe||leakHigh||x.community==='restriction'||x.community==='emergency'){decision='LIMIT LOAD';reason='Protect community reserve and stop new flexible workload admission.';start='Hold'}else if(projected&&x.alt){decision='MOVE SITE';reason='Forecast enters the safety margin; another site is lower risk.';start='17:05'}else if(projected){decision='LIMIT LOAD';reason='Forecast enters the safety margin with no safer option.';start='Hold'}const risk=Math.min(99,Math.max(8,Math.round(12+(x.temp-30)*2.1+(100-x.tank)*.26+(100-x.reuse)*.13+(x.community==='watch'?9:x.community==='restriction'?20:x.community==='emergency'?34:0)+(leakHigh?25:x.leak==='watch'?8:0)+(demand>capacity?15:0))));return{j,demand,capacity,balance:capacity-demand,expected,residual,leakHigh,unsafe,projected,decision,reason,start,risk}}
+    function spark(color='#00a98f',vals=[4,5,4,6,5,8,6,9]){const mx=Math.max(...vals),mn=Math.min(...vals),p=vals.map((v,i)=>`${i*100/(vals.length-1)},${21-(v-mn)/(mx-mn||1)*17}`).join(' ');return`<svg viewBox="0 0 100 24" preserveAspectRatio="none"><polyline points="${p}" fill="none" stroke="${color}" stroke-width="2"/></svg>`}
+    function lineChart(temp=32){const pts=[temp-5,temp-6,temp-5,temp-2,temp+1,temp+2,temp+1,temp+1,temp,temp-2],wet=pts.map(x=>x-6),path=a=>a.map((v,i)=>(i?'L':'M')+(20+i*45)+','+(95-(v-18)*4)).join(' ');return`<svg viewBox="0 0 440 115"><g stroke="#e2ebef">${[25,50,75,100].map(y=>`<line x1="18" y1="${y}" x2="430" y2="${y}"/>`).join('')}</g><path d="${path(pts)}" fill="none" stroke="#177fe5" stroke-width="2.5"/><path d="${path(wet)}" fill="none" stroke="#0aac9e" stroke-width="2.5"/>${['00','04','08','12','16','20'].map((x,i)=>`<text x="${20+i*78}" y="112" font-size="8" fill="#688494">${x}:00</text>`).join('')}</svg>`}
+    function demandChart(r=evaluate()){const ds=[.58,.5,.46,.48,.62,.78,.79,.76,.9,.94,.8,.65].map(v=>r.demand*v),cap=Array(12).fill(r.capacity),x=i=>30+i*43,y=v=>145-v/70,path=a=>a.map((v,i)=>(i?'L':'M')+x(i)+','+y(v)).join(' ');return`<svg viewBox="0 0 520 170"><rect x="330" y="10" width="95" height="135" fill="rgba(227,63,79,.08)"/><g stroke="#e2ebef">${[35,70,105,140].map(q=>`<line x1="28" y1="${q}" x2="510" y2="${q}"/>`).join('')}</g><path d="${path(cap)}" fill="none" stroke="#16a05b" stroke-width="2" stroke-dasharray="6 4"/><path d="${path(ds)}" fill="none" stroke="#177fe5" stroke-width="2.5"/>${ds.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="#177fe5"/>`).join('')}<text x="345" y="23" font-size="9" fill="#d33e4d">High risk</text></svg>`}
+    function siteOptions(){return Object.entries(sites).map(([k,s])=>`<option value="${k}" ${state.site===k?'selected':''}>${s.id}</option>`).join('')}
+    function pageHead(title,sub){return`<div class="page-title"><div><h1>${title}</h1><p>${sub}</p></div><span class="updated">Updated <span id="updatedAgo">just now</span></span></div>`}
+    function mapHtml(){return`<div class="map">${Object.entries(sites).map(([k,s])=>`<button class="map-node ${s.pos} ${s.risk==='Medium'?'watch':''} ${s.risk==='High'?'alert':''} ${state.site===k?'active':''}" data-site="${k}"><i></i><span>${s.id.replace(' DC1','')}</span></button>`).join('')}<div class="map-legend"><span><i style="background:var(--green)"></i>Normal</span><span><i style="background:var(--amber)"></i>Watch</span><span><i style="background:var(--red)"></i>High Risk</span></div></div>`}
+    function siteTable(){return`<table><thead><tr><th>Site</th><th>Location</th><th>Status</th><th>Water Risk</th><th>Current Mode</th><th>Key Health Indicator (WUE)</th><th>Trend</th></tr></thead><tbody>${Object.entries(sites).map(([k,s])=>`<tr><td><div class="site-cell"><span class="building">▥</span><button class="site-link" data-site="${k}">${s.id}</button></div></td><td>${s.place}</td><td><i class="tiny-dot"></i>${s.status}</td><td><span class="tag ${s.risk==='Low'?'green':'amber'}">${s.risk}</span></td><td>◉ ${s.mode}</td><td><b>${s.wue.toFixed(2)} L/kWh</b>　<span class="arrow">↓ ${s.delta}%</span></td><td><div class="trend">${spark(k==='jhr'?'#00a98f':'#00a7ce',[4,5,4,6,5,8,6,9])}</div></td></tr>`).join('')}</tbody></table>`}
+    function overview(){const s=current(),r=evaluate();return pageHead('Data Center Network Overview','Real-time view of all data center sites, water risk and operational status')+`<section class="card"><div class="overview-top"><div>${mapHtml()}</div><div style="overflow:auto">${siteTable()}</div></div></section><div class="overview-mid"><section class="card"><div class="card-head"><div><h2>☁ Weather Monitoring & Forecast</h2><p>Environmental conditions and dry-run eligibility</p></div><select class="select site-select">${siteOptions()}</select></div><div class="card-body"><div class="weather-now"><div class="weather-kpi"><i>♨</i><b>${s.temp}°C</b><span>Ambient Temp</span></div><div class="weather-kpi"><i style="color:var(--blue)">●</i><b>${Math.round(88-s.temp*.35)}%</b><span>Humidity</span></div><div class="weather-kpi"><i style="color:var(--teal)">♧</i><b>${(s.temp-5).toFixed(0)}°C</b><span>Wet-bulb</span></div><div class="dry-box"><b>🍃 ${cooling(s)==='DRY RUN'?'Dry Run Eligible':'Hybrid Recommended'}</b><span style="font-size:.56rem">Cooling Mode Recommendation</span><button id="switch-dry">${cooling(s)==='DRY RUN'?'Dry Run Active':'Switch to Dry Run'}</button></div></div><div class="mini-chart">${lineChart(s.temp)}</div></div></section><section class="card"><div class="card-head"><div><h2>⌁ Live Condition Monitoring</h2><p>Real-time operational metrics</p></div><select class="select site-select">${siteOptions()}</select></div><div class="card-body metric3"><div class="kpi"><span>IT Load</span><b>48 MW</b><small>72%</small></div><div class="kpi"><span>Cooling Load</span><b>${Math.round(18+s.temp/3)} MW</b><small>68%</small></div><div class="kpi"><span>WUE</span><b>${sites[state.site].wue}<br>L/kWh</b><small>↓ ${sites[state.site].delta}%</small></div><div class="kpi"><span>Makeup Flow</span><b>${Math.round(s.makeup/27)} m³/h</b><small>↓ 8%</small></div><div class="kpi"><span>Tank Level</span><b>${s.tank}%</b><small>${s.tank<40?'Low':'Normal'}</small></div><div class="kpi"><span>Pressure</span><b>${s.leak==='high'?112:142} kPa</b><small>${s.leak==='high'?'Low':'Normal'}</small></div></div></section><section class="card"><div class="card-head"><div><h2>◉ Leakage Monitoring</h2><p>Leak sensors and anomaly detection</p></div><select class="select site-select">${siteOptions()}</select></div><div class="card-body"><div class="metric3"><div class="kpi"><span>Leak Sensors</span><b>24</b><small>Online</small></div><div class="kpi"><span>Anomaly</span><b>${r.leakHigh?2:s.leak==='watch'?1:0}</b><small>${r.leakHigh?'High':'Watch'}</small></div><div class="kpi"><span>Critical</span><b>${s.leak==='high'?1:0}</b><small>Leaks</small></div></div>${s.leak!=='none'?`<div class="leak-alert">⚠ Cooling Tower Basin: ${s.leak==='high'?'Leak detected':'Minor anomaly detected'}</div>`:''}<div class="asset-map"><i class="asset-dot" style="left:18%;top:32%"></i><i class="asset-dot" style="left:46%;top:58%;background:${s.leak==='none'?'var(--green)':'var(--amber)'}"></i><i class="asset-dot" style="left:72%;top:28%"></i></div></div></section><section class="card"><div class="card-head"><div><h2>♻ Loss & Reuse Monitoring</h2><p>Water balance and reuse performance</p></div><select class="select site-select">${siteOptions()}</select></div><div class="card-body"><div class="metric3"><div class="kpi"><span>Expected Use</span><b>${Math.round(r.expected/10)} m³/h</b><small>Baseline</small></div><div class="kpi"><span>Actual Use</span><b>${Math.round(s.makeup/10)} m³/h</b><small>${r.residual>0?'↑':'↓'} ${Math.abs(Math.round(r.residual/r.expected*100))}%</small></div><div class="kpi"><span>Total Loss</span><b>${Math.abs(Math.round(r.residual/10))} m³/h</b><small>Residual</small></div></div><div class="reuse"><div class="donut" style="background:conic-gradient(var(--teal) 0 ${s.reuse}%,var(--blue) ${s.reuse}%)"><strong>${s.reuse}%</strong></div><div><div class="mix-row"><span>Reclaimed</span><div class="bar"><i style="width:${s.reuse}%"></i></div><b>${s.reuse}%</b></div><div class="mix-row"><span>Potable</span><div class="bar"><i style="width:${100-s.reuse}%;background:var(--blue)"></i></div><b>${100-s.reuse}%</b></div></div></div></div></section></div><div class="overview-low"><section class="card"><div class="card-head"><div><h2>▣ Workload Scheduler</h2><p>AI-driven scheduling to optimize performance and water impact</p></div><span>Updated now</span></div><div class="recommend"><b>Recommendation</b><span>${r.decision}: ${r.reason}</span><button data-page="scheduler">Review Decision</button></div>${jobsTable(5)}</section><section class="card"><div class="card-head"><div><h2>⌁ Forecast Water Demand</h2><p>24-hour forecast vs safe capacity</p></div><select class="select site-select">${siteOptions()}</select></div><div class="card-body chart">${demandChart(r)}</div></section><section class="card"><div class="card-head"><div><h2>♟ Cases & Alerts</h2><p>Actionable items and system alerts</p></div><button class="btn" data-page="cases">View all</button></div><div class="case-list">${alerts.map((a,i)=>`<div class="case-row"><span class="tag ${a.sev==='Critical'?'red':a.sev==='High'?'amber':'blue'}">${a.sev}</span><b>${a.site}</b><span>${a.summary}</span><span>${state.alertStatus[i]}</span></div>`).join('')}</div></section></div>`}
+    function jobsTable(limit=99){return`<div style="overflow:auto"><table><thead><tr><th>Job ID</th><th>Workload Type</th><th>Site</th><th>Runtime</th><th>Flexibility</th><th>Water Impact</th><th>Deadline</th><th>Recommended Action</th></tr></thead><tbody>${Object.entries(jobs).slice(0,limit).map(([k,j])=>{const rr=evaluate(current(),k);return`<tr class="${state.job===k?'loaded':''}"><td><button class="job-link" data-job="${k}">${j.id}</button></td><td>${j.type}</td><td>${j.site}</td><td>${j.runtime} h</td><td><span class="tag ${j.flex==='High'?'green':j.flex==='Medium'?'amber':'red'}">${j.flex}</span></td><td><span class="tag ${j.impact==='Low'?'green':j.impact==='Medium'?'amber':'red'}">${j.impact}</span></td><td>${j.deadline}</td><td><span class="tag ${rr.decision==='RUN NOW'?'blue':rr.decision==='DELAY'?'amber':rr.decision==='ESCALATE'?'red':'green'}">${rr.decision}</span></td></tr>`}).join('')}</tbody></table></div>`}
+    function sitesPage(){return pageHead('Sites','Fleet inventory, site water risk and infrastructure health')+`<div class="site-cards">${Object.entries(sites).map(([k,s])=>`<article class="card site-card ${state.site===k?'selected':''}"><h3>${s.id}</h3><p>${s.code} · ${s.place}</p><div class="site-card-stats"><div class="stat"><span>Water risk</span><b>${s.riskN}/100</b></div><div class="stat"><span>Cooling</span><b>${s.mode}</b></div><div class="stat"><span>Tank</span><b>${s.tank}%</b></div><div class="stat"><span>Reuse</span><b>${s.reuse}%</b></div></div><button class="btn primary section-gap" data-site="${k}">Open site</button></article>`).join('')}</div><div class="grid2 section-gap"><section class="card"><div class="card-head"><div><h2>${site().id} asset health</h2><p>Cooling and water infrastructure</p></div><span class="tag green">ONLINE</span></div><div class="card-body big-kpis"><div class="kpi"><span>Cooling Towers</span><b>4/4</b><small>Available</small></div><div class="kpi"><span>Chillers</span><b>8/8</b><small>Available</small></div><div class="kpi"><span>Flow Meters</span><b>11/12</b><small>1 service due</small></div><div class="kpi"><span>Leak Sensors</span><b>24/24</b><small>Online</small></div><div class="kpi"><span>GPU Capacity</span><b>${site().gpu}</b><small>Available</small></div><div class="kpi"><span>IoT Latency</span><b>1.8 s</b><small>Normal</small></div></div></section><section class="card"><div class="card-head"><div><h2>Site operating envelope</h2><p>Current capacity against policy limits</p></div></div><div class="card-body">${[['Tank reserve',site().tank,45],['Reclaimed ratio',site().reuse,50],['GPU headroom',72,25],['Cooling capacity',68,85]].map(x=>`<div class="mix-row"><span>${x[0]}</span><div class="bar"><i style="width:${x[1]}%;background:${x[1]<x[2]?'var(--red)':'var(--teal)'}"></i></div><b>${x[1]}%</b></div>`).join('')}</div></section></div>`}
+    function monitoring(){const s=current(),r=evaluate();return pageHead('Monitoring','Weather, cooling, water quality, leakage and reuse telemetry')+`<div class="big-kpis"><article class="card big-kpi"><span>Ambient</span><b>${s.temp}°C</b><small>ENV-01</small></article><article class="card big-kpi"><span>Wet-bulb</span><b>${s.temp-5}°C</b><small>ENV-03</small></article><article class="card big-kpi"><span>Tank Level</span><b>${s.tank}%</b><small>LT-01</small></article><article class="card big-kpi"><span>Makeup Flow</span><b>${Math.round(s.makeup/27)} m³/h</b><small>FM-MU</small></article><article class="card big-kpi"><span>Conductivity</span><b>${1180+(100-s.reuse)*7} ppm</b><small>EC-CT</small></article><article class="card big-kpi"><span>Loss Residual</span><b>${Math.round(r.residual/10)} m³/h</b><small>${r.leakHigh?'Anomaly':'Normal'}</small></article></div><div class="grid2 section-gap"><section class="card"><div class="card-head"><div><h2>24-hour weather & wet-bulb trend</h2><p>Cooling mode input conditions</p></div><select class="select site-select">${siteOptions()}</select></div><div class="card-body chart">${lineChart(s.temp)}</div></section><section class="card"><div class="card-head"><div><h2>Cooling mode control</h2><p>Automatic and manual operating modes</p></div><span class="tag blue">${state.cooling}</span></div><div class="card-body"><div class="decision"><span>Current recommendation</span><h2>${cooling(s)}</h2><p>${cooling(s)==='DRY RUN'?'Ambient conditions allow water-free heat rejection.':cooling(s)==='HYBRID'?'Partial dry heat rejection reduces water use while protecting capacity.':'High temperature requires evaporative cooling.'}</p></div><div class="filters section-gap">${['AUTO','DRY RUN','HYBRID','WET'].map(m=>`<button class="btn ${state.cooling===m?'active':''}" data-cooling="${m}">${m}</button>`).join('')}</div></div></section><section class="card"><div class="card-head"><div><h2>Leak detection evidence</h2><p>Expected versus actual water balance</p></div><span class="tag ${r.leakHigh?'red':'green'}">${r.leakHigh?'HIGH RISK':'NORMAL'}</span></div><div class="card-body metric3"><div class="kpi"><span>Expected Makeup</span><b>${Math.round(r.expected/10)} m³/h</b></div><div class="kpi"><span>Actual Makeup</span><b>${Math.round(s.makeup/10)} m³/h</b></div><div class="kpi"><span>Residual</span><b>${Math.round(r.residual/10)} m³/h</b></div><div class="kpi"><span>LD-01</span><b>${s.leak==='high'?'ALARM':'Normal'}</b></div><div class="kpi"><span>Pressure</span><b>${s.leak==='high'?112:142} kPa</b></div><div class="kpi"><span>Basin Level</span><b>${r.leakHigh?'Falling':'Stable'}</b></div></div></section><section class="card"><div class="card-head"><div><h2>Loss & reuse balance</h2><p>Current source mix and tower losses</p></div></div><div class="card-body reuse"><div class="donut" style="background:conic-gradient(var(--teal) 0 ${s.reuse}%,var(--blue) ${s.reuse}%)"><strong>${s.reuse}%</strong></div><div>${[['Reclaimed',s.reuse],['Potable',100-s.reuse],['Evaporation',81],['Blowdown',17]].map(x=>`<div class="mix-row"><span>${x[0]}</span><div class="bar"><i style="width:${x[1]}%"></i></div><b>${x[1]}%</b></div>`).join('')}</div></div></section></div>`}
+    function analytics(){return pageHead('Analytics','Cross-site water efficiency, reuse and operational performance')+`<div class="big-kpis"><article class="card big-kpi"><span>Fleet WUE</span><b>0.36 L/kWh</b><small>↓ 17% YoY</small></article><article class="card big-kpi"><span>Reclaimed Ratio</span><b>62%</b><small>↑ 9%</small></article><article class="card big-kpi"><span>Potable Avoided</span><b>2.1 ML</b><small>This month</small></article><article class="card big-kpi"><span>Water Loss</span><b>2.8%</b><small>↓ 0.7%</small></article><article class="card big-kpi"><span>Dry Run Hours</span><b>186 h</b><small>↑ 31%</small></article><article class="card big-kpi"><span>Jobs Optimized</span><b>1,248</b><small>97.4% SLA</small></article></div><div class="grid2 section-gap"><section class="card"><div class="card-head"><div><h2>Fleet WUE trend</h2><p>Litres per kWh · rolling 30 days</p></div></div><div class="card-body chart">${lineChart(28)}</div></section><section class="card"><div class="card-head"><div><h2>Site comparison</h2><p>Water efficiency and reuse performance</p></div></div><div class="card-body">${Object.values(sites).map(s=>`<div class="mix-row" style="grid-template-columns:110px 1fr 80px"><span>${s.id}</span><div class="bar"><i style="width:${s.reuse}%"></i></div><b>${s.wue} L/kWh</b></div>`).join('')}</div></section><section class="card"><div class="card-head"><div><h2>Water source portfolio</h2><p>Fleet total by source</p></div></div><div class="card-body reuse"><div class="donut" style="background:conic-gradient(var(--teal) 0 62%,var(--blue) 62% 94%,var(--amber) 94%)"><strong>62%</strong></div><div>${[['Reclaimed',62],['Potable',32],['Groundwater',6]].map(x=>`<div class="mix-row"><span>${x[0]}</span><div class="bar"><i style="width:${x[1]}%"></i></div><b>${x[1]}%</b></div>`).join('')}</div></div></section><section class="card"><div class="card-head"><div><h2>Optimization outcomes</h2><p>Scheduler actions this month</p></div></div><div class="card-body metric3"><div class="kpi"><span>Run Now</span><b>842</b><small>67%</small></div><div class="kpi"><span>Delayed</span><b>196</b><small>16%</small></div><div class="kpi"><span>Moved</span><b>127</b><small>10%</small></div><div class="kpi"><span>Limited</span><b>68</b><small>5%</small></div><div class="kpi"><span>Escalated</span><b>15</b><small>1%</small></div><div class="kpi"><span>Water Saved</span><b>14%</b><small>vs baseline</small></div></div></section></div>`}
+    function scheduler(){const s=current(),r=evaluate();return pageHead('Workload Scheduler','Simulate water conditions and inspect explainable scheduling decisions')+`<div class="grid2"><section class="card"><div class="card-head"><div><h2>Simulation inputs</h2><p>Changes apply immediately to the scheduler model</p></div><button class="btn" id="reset-sim">Reset to site</button></div><div class="card-body control-grid"><div class="control"><label>Ambient temperature <output>${s.temp}°C</output></label><input data-sim="temp" type="range" min="24" max="44" value="${s.temp}"></div><div class="control"><label>Tank level <output>${s.tank}%</output></label><input data-sim="tank" type="range" min="10" max="100" value="${s.tank}"></div><div class="control"><label>Reclaimed supply <output>${s.reuse}%</output></label><input data-sim="reuse" type="range" min="0" max="100" value="${s.reuse}"></div><div class="control"><label>Makeup flow <output>${fmt.format(s.makeup)} L/h</output></label><input data-sim="makeup" type="range" min="3800" max="9000" step="20" value="${s.makeup}"></div><div class="control"><label>Community condition</label><select data-sim="community">${['normal','watch','restriction','emergency'].map(v=>`<option ${s.community===v?'selected':''}>${v}</option>`).join('')}</select></div><div class="control"><label>Leak signal</label><select data-sim="leak">${['none','watch','high'].map(v=>`<option ${s.leak===v?'selected':''}>${v}</option>`).join('')}</select></div><div class="control"><label>Alternative site</label><select data-sim="alt"><option value="true" ${s.alt?'selected':''}>Available</option><option value="false" ${!s.alt?'selected':''}>Unavailable</option></select></div><div class="control"><label>Future water window</label><select data-sim="future">${['stable','better','poor'].map(v=>`<option ${s.future===v?'selected':''}>${v}</option>`).join('')}</select></div></div></section><section class="decision"><span>Scheduler recommendation · Risk ${r.risk}/100</span><h2>${r.decision}</h2><p>${r.reason}</p><div class="decision-grid"><div><span>Demand</span><b>${fmt.format(r.demand)} L/h</b></div><div><span>Balance</span><b>${r.balance>=0?'+':'−'}${fmt.format(Math.abs(r.balance))} L/h</b></div><div><span>Start</span><b>${r.start}</b></div></div></section></div><div class="grid2 section-gap"><section class="card"><div class="card-head"><div><h2>Forecast water demand</h2><p>Selected job window versus safe capacity</p></div></div><div class="card-body chart">${demandChart(r)}</div></section><section class="card"><div class="card-head"><div><h2>Decision trace</h2><p>Rule and constraint evaluation</p></div></div><div class="card-body">${[['GPU capacity',r.j.gpu<=r.j.available],['Current water capacity',r.balance>=0],['Leak evidence',!r.leakHigh],['Community reserve',s.community==='normal'],['Full job window',!r.projected],['Alternative placement',s.alt]].map(x=>`<div class="setting-row"><div><b>${x[0]}</b><span>${x[1]?'Constraint satisfied':'Constraint requires action'}</span></div><span class="tag ${x[1]?'green':'red'}">${x[1]?'PASS':'FAIL'}</span></div>`).join('')}</div></section></div><section class="card section-gap"><div class="card-head"><div><h2>Workload queue</h2><p>Click any Job ID to re-evaluate</p></div></div>${jobsTable()}</section>`}
+    function reports(){const reports=[['Daily Water Operations','Flow, tank, losses, reuse and scheduler actions for the selected day.','daily'],['Monthly Efficiency','Fleet WUE, reclaimed ratio and potable reduction by site.','monthly'],['Leak & Anomaly Register','All detected residuals, sensor evidence and maintenance response.','leaks'],['Scheduler Decision Log','Workload decisions with water risk, constraints and outcomes.','scheduler']];return pageHead('Reports','Operational records and downloadable monitoring summaries')+`<div class="grid3">${reports.map(r=>`<article class="card report-card"><h3>${r[0]}</h3><p>${r[1]}</p><button class="btn primary" data-report="${r[2]}">Download CSV</button></article>`).join('')}</div><section class="card section-gap"><div class="card-head"><div><h2>Recent generated reports</h2><p>Local demonstration records</p></div></div><table><thead><tr><th>Report</th><th>Period</th><th>Sites</th><th>Generated</th><th>Status</th></tr></thead><tbody><tr><td>Daily Water Operations</td><td>Today</td><td>4</td><td>08:00 MYT</td><td><span class="tag green">Ready</span></td></tr><tr><td>September Efficiency</td><td>Sep 2026</td><td>4</td><td>Oct 01</td><td><span class="tag green">Ready</span></td></tr><tr><td>Leak Investigation Register</td><td>Last 30 days</td><td>4</td><td>Today</td><td><span class="tag blue">Updated</span></td></tr></tbody></table></section>`}
+    function cases(){return pageHead('Cases & Alerts','Operational alerts, investigations and simulated scheduler test cases')+`<div class="filters" style="margin-bottom:8px"><button class="btn ${state.caseTab==='alerts'?'active':''}" data-case-tab="alerts">Alerts & investigations</button><button class="btn ${state.caseTab==='tests'?'active':''}" data-case-tab="tests">Test Lab · 24 cases</button></div>${state.caseTab==='alerts'?alertsView():testsView()}`}
+    function alertsView(){return`<section class="card"><div class="card-head"><div><h2>Active operations cases</h2><p>Click status to advance the case workflow</p></div><span>${state.alertStatus.filter(x=>x!=='Resolved').length} open items</span></div><table><thead><tr><th>Severity</th><th>Type</th><th>Site</th><th>Summary</th><th>Owner</th><th>Status</th><th>Action</th></tr></thead><tbody>${alerts.map((a,i)=>`<tr><td><span class="tag ${a.sev==='Critical'?'red':a.sev==='High'?'amber':'blue'}">${a.sev}</span></td><td>${a.type}</td><td>${a.site}</td><td>${a.summary}</td><td>${a.owner}</td><td>${state.alertStatus[i]}</td><td><button class="btn" data-alert="${i}">${state.alertStatus[i]==='Resolved'?'Reopen':'Advance'}</button></td></tr>`).join('')}</tbody></table></section>`}
+    function testsView(){const shown=tests.filter(x=>state.filter==='ALL'||x.expect===state.filter),pass=[...state.tests.values()].filter(x=>x.pass).length,fail=state.tests.size-pass;return`<section class="card"><div class="card-head"><div><h2>Scheduler scenario test lab</h2><p>Load any case into the Scheduler for a complete walkthrough</p></div><span>Passed <b class="pass">${pass}</b> · Failed <b class="fail">${fail}</b> · Coverage <b>${Math.round(state.tests.size/tests.length*100)}%</b></span></div><div class="test-toolbar"><div class="filters">${['ALL','RUN NOW','DELAY','MOVE SITE','LIMIT LOAD','ESCALATE'].map(f=>`<button class="btn ${state.filter===f?'active':''}" data-filter="${f}">${f}</button>`).join('')}</div><div><button class="btn" id="clear-tests">Clear</button> <button class="btn primary" id="run-tests">Run all 24 tests</button></div></div><div class="test-scroll"><table><thead><tr><th>ID</th><th>Simulated condition</th><th>Workload</th><th>Expected</th><th>Actual result</th><th>Walkthrough</th></tr></thead><tbody>${shown.map(t=>{const rr=state.tests.get(t.id);return`<tr class="${state.activeTest===t.id?'loaded':''}"><td><b>${t.id}</b></td><td>${t.name}</td><td>${jobs[t.job].type}</td><td><span class="tag blue">${t.expect}</span></td><td>${rr?`<span class="${rr.pass?'pass':'fail'}">${rr.pass?'PASS':'FAIL'} · ${rr.actual}</span>`:'Not run'}</td><td><button class="btn" data-test="${t.id}">Load & inspect</button></td></tr>`}).join('')}</tbody></table></div></section>`}
+    function settings(){const s=state.settings;return pageHead('Settings','Water-risk thresholds and cooling control policies')+`<div class="grid2"><section class="card"><div class="card-head"><div><h2>Scheduler thresholds</h2><p>Used by simulation and test cases</p></div></div><div class="setting-row"><div><b>Water risk watch threshold</b><span>Risk score that triggers additional monitoring</span></div><input id="set-risk" type="number" min="1" max="99" value="${s.riskWatch}"></div><div class="setting-row"><div><b>Minimum tank reserve</b><span>Flexible workload safety threshold</span></div><input id="set-tank" type="number" min="10" max="80" value="${s.minTank}"></div><div class="setting-row"><div><b>Leak residual threshold</b><span>Actual minus expected makeup flow</span></div><input id="set-leak" type="number" min="100" max="3000" value="${s.leakResidual}"></div></section><section class="card"><div class="card-head"><div><h2>Cooling control</h2><p>Automatic dry-run eligibility</p></div></div><div class="setting-row"><div><b>Dry-run ambient threshold</b><span>Maximum ambient temperature for dry cooling</span></div><input id="set-dry" type="number" min="20" max="35" value="${s.dryTemp}"></div><div class="setting-row"><div><b>Default cooling control</b><span>Mode used when the dashboard loads</span></div><select id="set-mode"><option>AUTO</option><option>HYBRID</option><option>DRY RUN</option><option>WET</option></select></div><div style="padding:12px"><button class="btn primary" id="save-settings">Save settings locally</button></div></section></div>`}
+    function render(){el('nav').innerHTML=pages.map(p=>`<button class="${state.page===p[0]?'active':''}" data-page="${p[0]}"><span class="ico">${p[1]}</span>${p[2]}</button>`).join('');const views={overview,sites:sitesPage,monitoring,analytics,scheduler,reports,cases,settings};el('app').innerHTML=views[state.page]();bind()}
+    function bind(){document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>{state.page=b.dataset.page;render()});document.querySelectorAll('[data-site]').forEach(b=>b.onclick=()=>{state.site=b.dataset.site;state.sim=null;state.activeTest=null;render()});document.querySelectorAll('.site-select').forEach(s=>s.onchange=()=>{state.site=s.value;state.sim=null;render()});document.querySelectorAll('[data-job]').forEach(b=>b.onclick=()=>{state.job=b.dataset.job;state.page='scheduler';render()});document.querySelectorAll('[data-cooling]').forEach(b=>b.onclick=()=>{state.cooling=b.dataset.cooling;render()});document.querySelectorAll('[data-sim]').forEach(c=>c.oninput=()=>{if(!state.sim)state.sim={...site()};let v=c.value;if(['temp','tank','reuse','makeup'].includes(c.dataset.sim))v=+v;if(c.dataset.sim==='alt')v=v==='true';state.sim[c.dataset.sim]=v;state.activeTest=null;render()});const reset=el('reset-sim');if(reset)reset.onclick=()=>{state.sim=null;state.activeTest=null;render()};const dry=el('switch-dry');if(dry)dry.onclick=()=>{state.cooling='DRY RUN';state.page='monitoring';render();toast('Dry Run mode applied to the selected site')};document.querySelectorAll('[data-case-tab]').forEach(b=>b.onclick=()=>{state.caseTab=b.dataset.caseTab;render()});document.querySelectorAll('[data-alert]').forEach(b=>b.onclick=()=>{const i=+b.dataset.alert;state.alertStatus[i]=state.alertStatus[i]==='Resolved'?'Open':state.alertStatus[i]==='Open'?'Investigating':'Resolved';render()});document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{state.filter=b.dataset.filter;render()});document.querySelectorAll('[data-test]').forEach(b=>b.onclick=()=>loadTest(b.dataset.test));const run=el('run-tests');if(run)run.onclick=runTests;const clear=el('clear-tests');if(clear)clear.onclick=()=>{state.tests.clear();state.activeTest=null;render()};document.querySelectorAll('[data-report]').forEach(b=>b.onclick=()=>download(b.dataset.report));const save=el('save-settings');if(save)save.onclick=saveSettings}
+    function loadTest(id){const q=tests.find(x=>x.id===id);state.sim={...site(),temp:q.temp,tank:q.tank,reuse:q.reuse,makeup:q.makeup,community:q.community,leak:q.leak,alt:q.alt,future:q.future};state.job=q.job;state.activeTest=id;const actual=evaluate(state.sim,q.job).decision;state.tests.set(id,{actual,pass:actual===q.expect});state.page='scheduler';render();toast(`${id} loaded: ${actual}`)}
+    function runTests(){tests.forEach(q=>{const x={...site(),...q};const actual=evaluate(x,q.job).decision;state.tests.set(q.id,{actual,pass:actual===q.expect})});render();toast(`${[...state.tests.values()].filter(x=>x.pass).length}/24 test cases passed`)}
+    function download(kind){const rows=[['Report','Site','Metric','Value'],[kind,site().id,'Tank Level',site().tank+'%'],[kind,site().id,'Reuse Ratio',site().reuse+'%'],[kind,site().id,'WUE',site().wue+' L/kWh']];const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`aquashift-${kind}.csv`;a.click();URL.revokeObjectURL(a.href);toast('CSV report downloaded')}
+    function saveSettings(){state.settings={dryTemp:+el('set-dry').value,riskWatch:+el('set-risk').value,leakResidual:+el('set-leak').value,minTank:+el('set-tank').value};state.cooling=el('set-mode').value;localStorage.setItem('aqua-settings',JSON.stringify(state.settings));toast('Settings saved locally')}
+    function toast(msg){const t=el('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
+    el('refresh').onclick=()=>{render();toast('Dashboard refreshed')};el('search').onkeydown=e=>{if(e.key==='Enter'){const q=e.target.value.toLowerCase(),found=Object.entries(sites).find(([,s])=>(s.id+s.place+s.code).toLowerCase().includes(q));if(found){state.site=found[0];state.page='sites'}else{state.page='cases';state.caseTab='tests'}render()}};render();
   </script>
 </body>
 </html>
