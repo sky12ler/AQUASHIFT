@@ -126,18 +126,182 @@
   };
   const donut = (value=65,label='465 m³/h') => `<div class="donut" style="background:conic-gradient(var(--teal) 0 ${value}%,var(--blue) ${value}% 88%,#9eddda 88%)"><b>${label}</b></div>`;
 
-  function mapHtml(){
-    const regions={
+  const MAP_REGIONS={
       global:{label:'Global',minLon:-180,maxLon:180,minLat:-90,maxLat:90},
       apac:{label:'Southeast Asia',minLon:99,maxLon:105,minLat:0,maxLat:6.5},
       usa:{label:'United States',minLon:-130,maxLon:-65,minLat:24,maxLat:50}
-    };
+  };
+  const mapSelectionHtml=s=>`<b>${s.name}</b><span>${s.location}</span><code>${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}</code><small>${s.capability} capable · Current: ${s.mode}</small>`;
+
+  function mapHtml(){
+    const regions=MAP_REGIONS;
     const r=regions[state.mapRegion]||regions.global;
     const visible=sites.filter(s=>s.lon>=r.minLon&&s.lon<=r.maxLon&&s.lat>=r.minLat&&s.lat<=r.maxLat);
-    const nodes=visible.map(s=>{const left=(s.lon+180)/360*100,top=(90-s.lat)/180*100;return `<button class="map-node global-node ${s.id} ${s.id===state.site?'active':''} ${s.risk!=='Low'?'warn':''}" style="left:${left}%;top:${top}%" data-site="${s.id}" title="${s.name} · ${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}"><i></i><span>${s.name}</span></button>`}).join('');
+    const lonRange=r.maxLon-r.minLon,latRange=r.maxLat-r.minLat;
+    const mapStyle=`--map-aspect:${2753/1396*lonRange/(2*latRange)};--map-size-x:${360/lonRange*100}%;--map-size-y:${180/latRange*100}%;--map-pos-x:${lonRange===360?0:(r.minLon+180)/(360-lonRange)*100}%;--map-pos-y:${latRange===180?0:(90-r.maxLat)/(180-latRange)*100}%`;
+    const nodes=visible.map(s=>{const left=(s.lon-r.minLon)/lonRange*100,top=(r.maxLat-s.lat)/latRange*100;return `<button class="map-node global-node ${s.id} ${left>65?'label-left':''} ${s.id===state.site?'active':''} ${s.risk!=='Low'?'warn':''}" style="left:${left}%;top:${top}%" data-site="${s.id}" aria-label="Select ${s.name}, ${s.risk.toLowerCase()} water risk" aria-pressed="${s.id===state.site}" title="${s.name} · ${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}"><i></i><span>${s.name}</span></button>`}).join('');
     const selected=site();
-    return `<div class="map-shell"><div class="map-region-tabs">${Object.entries(regions).map(([key,value])=>`<button class="map-region-btn ${state.mapRegion===key?'active':''}" data-map-region="${key}">${value.label}</button>`).join('')}</div><div class="map global-map map-region-${state.mapRegion}"><div class="map-background" role="img" aria-label="World map filtered to ${r.label} AQUASHIFT sites"></div>${nodes}<div class="map-title">${r.label.toUpperCase()} · ${visible.length} SITES SHOWN</div><div class="map-legend"><span><i class="dot"></i> Online (${visible.length})</span><span class="watch-key">● Watch (${visible.filter(s=>s.risk!=='Low').length})</span><span class="offline-key">● Offline (0)</span></div><div class="map-credit"><a href="https://commons.wikimedia.org/wiki/File:BlankMap-World-Equirectangular.svg" target="_blank" rel="noreferrer">Map CC0</a></div></div><div class="map-selection"><b>${selected.name}</b><span>${selected.location}</span><code>${selected.lat.toFixed(4)}, ${selected.lon.toFixed(4)}</code><small>${selected.capability} capable · Current: ${selected.mode}</small></div></div>`;
+    const online=visible.filter(s=>s.status==='Online').length;
+    return `<div class="map-shell">
+      <div class="map-toolbar"><div class="map-region-tabs">${Object.entries(regions).map(([key,value])=>`<button class="map-region-btn ${state.mapRegion===key?'active':''}" data-map-region="${key}" aria-pressed="${state.mapRegion===key}">${value.label}</button>`).join('')}</div>
+        <div class="map-zoom-controls" role="group" aria-label="Map zoom controls">
+          <button class="btn" data-map-zoom="in" aria-label="Zoom in" title="Zoom in">+</button>
+          <button class="btn" data-map-zoom="out" aria-label="Zoom out" title="Zoom out">−</button>
+          <button class="btn" data-map-zoom="reset" aria-label="Reset map view">Reset view</button>
+        </div>
+      </div>
+      <div class="map global-map map-region-${state.mapRegion}" data-map-view="${state.mapRegion}" style="${mapStyle}">
+        <div class="map-surface"><div class="map-background" role="img" aria-label="Map of ${r.label} AQUASHIFT sites"></div>${nodes}</div>
+        <div class="map-title">${r.label.toUpperCase()} · ${visible.length} SITES</div>
+        <div class="map-credit"><a href="https://commons.wikimedia.org/wiki/File:BlankMap-World-Equirectangular.svg" target="_blank" rel="noreferrer">Map CC0</a></div>
+      </div>
+      <div class="map-legend" aria-label="Site availability and water risk">
+        <span class="network-availability" data-map-stat="network">${online} online · ${visible.length-online} offline</span>
+        <span class="low-risk-key" data-map-stat="low">● Low water risk (${visible.filter(s=>s.risk==='Low').length})</span>
+        <span class="watch-key" data-map-stat="elevated">● Elevated water risk (${visible.filter(s=>s.risk!=='Low').length})</span>
+      </div>
+      <div class="map-selection" tabindex="-1" aria-live="polite">${mapSelectionHtml(selected)}</div>
+    </div>`;
   }
+
+  let mapResizeObserver;
+  let mapView={region:null,zoom:1,x:0,y:0};
+  function bindMapMarkers(){
+    mapResizeObserver?.disconnect();
+    const maps=[...document.querySelectorAll('.global-map')];
+    if(!maps.length)return;
+    if(mapView.region!==state.mapRegion)mapView={region:state.mapRegion,zoom:1,x:0,y:0};
+    const layouts=new Map();
+    maps.forEach(map=>{
+      const surface=map.querySelector('.map-surface'),controls=map.closest('.map-shell').querySelector('.map-zoom-controls');
+      const view=mapView,fitCard=Boolean(map.closest('.overview-network'));
+      const layout=()=>{
+        const region=MAP_REGIONS[map.dataset.mapView]||MAP_REGIONS.global;
+        const lonRange=region.maxLon-region.minLon,latRange=region.maxLat-region.minLat;
+        const aspect=2753/1396*lonRange/(2*latRange);
+        const minLon=region.minLon,maxLat=region.maxLat;
+        map.style.setProperty('--map-size-x',`${360/lonRange*100}%`);
+        map.style.setProperty('--map-size-y',`${180/latRange*100}%`);
+        map.style.setProperty('--map-pos-x',`${Math.abs(lonRange-360)<.001?0:(minLon+180)/(360-lonRange)*100}%`);
+        map.style.setProperty('--map-pos-y',`${Math.abs(latRange-180)<.001?0:(90-maxLat)/(180-latRange)*100}%`);
+        surface.querySelectorAll('.global-node').forEach(node=>{
+          const s=sites.find(site=>site.id===node.dataset.site),left=(s.lon-minLon)/lonRange*100;
+          node.style.left=`${left}%`;node.style.top=`${(maxLat-s.lat)/latRange*100}%`;
+          node.classList.toggle('label-left',left>65);
+        });
+        const width=(fitCard?map.clientWidth:Math.min(map.clientWidth,map.clientHeight*aspect))*view.zoom;
+        const height=fitCard?map.clientHeight*view.zoom:width/aspect;
+        map.style.setProperty('--map-aspect',width/height);
+        const maxX=Math.max(0,(width-map.clientWidth)/2),maxY=Math.max(0,(height-map.clientHeight)/2);
+        view.x=Math.max(-maxX,Math.min(maxX,view.x));view.y=Math.max(-maxY,Math.min(maxY,view.y));
+        surface.style.width=`${width}px`;surface.style.height=`${height}px`;
+        surface.style.left=`calc(50% + ${view.x}px)`;surface.style.top=`calc(50% + ${view.y}px)`;
+        map.classList.toggle('is-zoomed',view.zoom>1);
+        map.dataset.zoom=String(view.zoom);
+        controls.querySelector('[data-map-zoom="in"]').disabled=view.zoom>=8;
+        controls.querySelector('[data-map-zoom="out"]').disabled=view.zoom<=1;
+        controls.querySelector('[data-map-zoom="reset"]').disabled=view.zoom===1&&view.x===0&&view.y===0;
+      };
+      const zoomAt=(zoom,clientX,clientY)=>{
+        zoom=Math.max(1,Math.min(8,zoom));
+        const rect=map.getBoundingClientRect(),factor=zoom/view.zoom;
+        const x=clientX==null?0:clientX-rect.left-rect.width/2;
+        const y=clientY==null?0:clientY-rect.top-rect.height/2;
+        view.x=x-(x-view.x)*factor;view.y=y-(y-view.y)*factor;view.zoom=zoom;
+        layout();
+      };
+      controls.querySelector('[data-map-zoom="in"]').addEventListener('click',()=>zoomAt(view.zoom*1.35));
+      controls.querySelector('[data-map-zoom="out"]').addEventListener('click',()=>zoomAt(view.zoom/1.35));
+      controls.querySelector('[data-map-zoom="reset"]').addEventListener('click',()=>{
+        view.zoom=1;view.x=0;view.y=0;layout();
+      });
+      map.addEventListener('wheel',event=>{
+        if(!event.ctrlKey)return;
+        event.preventDefault();
+        const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?map.clientHeight:1);
+        zoomAt(view.zoom*Math.exp(-delta*.002),event.clientX,event.clientY);
+      },{passive:false});
+      let drag=null;
+      map.addEventListener('pointerdown',event=>{
+        if(view.zoom<=1||event.button!==0||event.target.closest('button,a'))return;
+        drag={id:event.pointerId,x:event.clientX,y:event.clientY,viewX:view.x,viewY:view.y};
+        map.setPointerCapture(event.pointerId);map.classList.add('is-dragging');
+      });
+      map.addEventListener('pointermove',event=>{
+        if(!drag||event.pointerId!==drag.id)return;
+        view.x=drag.viewX+event.clientX-drag.x;view.y=drag.viewY+event.clientY-drag.y;layout();
+      });
+      const stopDrag=()=>{drag=null;map.classList.remove('is-dragging');};
+      map.addEventListener('pointerup',stopDrag);
+      map.addEventListener('pointercancel',stopDrag);
+      map.addEventListener('lostpointercapture',stopDrag);
+      layouts.set(map,layout);layout();
+    });
+    mapResizeObserver=new ResizeObserver(entries=>entries.forEach(entry=>layouts.get(entry.target)?.()));
+    maps.forEach(map=>mapResizeObserver.observe(map));
+  }
+
+  let overviewRotationTimer,overviewFadeTimer;
+  let overviewInteractionUntil=0,overviewStatusSnapshot=null;
+  function bindOverviewRotation(){
+    clearTimeout(overviewRotationTimer);clearTimeout(overviewFadeTimer);
+    const root=document.querySelector('.overview-network');
+    if(state.page!=='overview'||!root)return;
+    let nextRotation=Date.now()+5000;
+    const interact=()=>{
+      overviewInteractionUntil=Date.now()+15000;
+      clearTimeout(overviewFadeTimer);
+      root.querySelector('.map-selection').classList.remove('is-changing');
+    };
+    ['pointerdown','click','keydown','wheel'].forEach(type=>root.addEventListener(type,interact,{capture:true,passive:true}));
+    root.addEventListener('pointermove',event=>{if(event.buttons)interact();},{passive:true});
+    const regionSites=()=>[...root.querySelectorAll('.global-node')].map(node=>sites.find(s=>s.id===node.dataset.site));
+    const updateStatus=()=>{
+      const visible=regionSites(),online=visible.filter(s=>s.status==='Online').length;
+      const counts={network:`${online} online · ${visible.length-online} offline`,low:`● Low water risk (${visible.filter(s=>s.risk==='Low').length})`,elevated:`● Elevated water risk (${visible.filter(s=>s.risk!=='Low').length})`};
+      Object.entries(counts).forEach(([key,value])=>{
+        const el=root.querySelector(`[data-map-stat="${key}"]`);
+        if(overviewStatusSnapshot?.region===state.mapRegion&&overviewStatusSnapshot[key]!==value){
+          el.classList.remove('count-changed');void el.offsetWidth;el.classList.add('count-changed');
+        }
+        if(el.textContent!==value)el.textContent=value;
+      });
+      overviewStatusSnapshot={region:state.mapRegion,...counts};
+      root.querySelectorAll('.global-node').forEach(node=>{
+        const s=visible.find(s=>s.id===node.dataset.site);
+        node.classList.toggle('warn',s.risk!=='Low');
+        node.setAttribute('aria-label',`Select ${s.name}, ${s.risk.toLowerCase()} water risk`);
+      });
+    };
+    const rotate=()=>{
+      const visible=regionSites(),index=visible.findIndex(s=>s.id===state.site),next=visible[(index+1)%visible.length];
+      if(!next||next.id===state.site)return;
+      const selection=root.querySelector('.map-selection');
+      const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if(!reducedMotion)selection.classList.add('is-changing');
+      overviewFadeTimer=setTimeout(()=>{
+        if(!root.isConnected||Date.now()<overviewInteractionUntil)return;
+        state.site=next.id;selection.innerHTML=mapSelectionHtml(next);
+        selection.classList.remove('is-changing');
+        root.querySelectorAll('.global-node').forEach(node=>{
+          const active=node.dataset.site===next.id;
+          node.classList.toggle('active',active);node.classList.toggle('is-rotating',active);
+          node.setAttribute('aria-pressed',String(active));
+        });
+      },reducedMotion?0:150);
+    };
+    const tick=()=>{
+      if(!root.isConnected||state.page!=='overview')return;
+      const now=Date.now();updateStatus();
+      if(document.hidden)nextRotation=now+5000;
+      else if(now>=nextRotation&&now>=overviewInteractionUntil&&!root.querySelector('.is-dragging')){
+        rotate();nextRotation=now+5000;
+      }
+      overviewRotationTimer=setTimeout(tick,250);
+    };
+    updateStatus();overviewRotationTimer=setTimeout(tick,250);
+  }
+
   function leakEvidence(){ return `<button class="asset-plan" data-evidence="leak" aria-label="Open simulated IoT leak camera evidence"><span class="camera-label">SIMULATED IoT CAMERA · CAM 03</span><span class="camera-event">LEAK DETECTED · PIPE JOINT CW-2</span><span class="camera-open">Open evidence ↗</span></button>`; }
   function evidenceModal(){ return state.evidenceOpen?`<div class="evidence-modal" role="dialog" aria-modal="true" aria-label="Simulated leak camera evidence"><button class="evidence-close" data-close-evidence aria-label="Close evidence">×</button><div class="evidence-frame"><div class="evidence-head"><div><b>CAM 03 · COOLING WATER LOOP</b><span>Simulated IoT visual detection</span></div>${tag('ACTIVE LEAK','red')}</div><img src="assets/leak detected.png" alt="Simulated camera view of a cooling-water pipe leak with IoT detection overlays"><div class="evidence-foot"><span><b>Asset</b> Pipe Joint CW-2</span><span><b>Pressure drop</b> 0.8 bar</span><span><b>Estimated loss</b> 18.6 L/min</span><span><b>Confidence</b> 96%</span></div></div></div>`:''; }
   function siteRows(){ return `<div class="table-wrap"><table><thead><tr><th>Site</th><th>Location</th><th>Status</th><th>Water Risk</th><th>Capability</th><th>Current Mode</th><th>WUE</th><th>Reclaimed</th><th>Current Load</th><th>Updated</th></tr></thead><tbody>${sites.map(s=>`<tr data-site="${s.id}" class="clickable"><td><b class="table-site"><span>${iconSvg('site')}</span>${s.name}</b></td><td>${s.location}</td><td><i class="dot"></i>Online</td><td>${tag(s.risk,riskColor(s.risk))}</td><td>${tag(s.capability,'blue')}</td><td><b class="mode-state ${s.mode==='Dry Run'?'dry':'closed'}">${s.mode==='Dry Run'?'◇':'●'} ${s.mode}</b></td><td><b>${s.wue.toFixed(2)}</b> <span class="up">↓ ${Math.round((.49-s.wue)*100)}%</span></td><td>${s.reuse}%</td><td><b>${s.load} MW</b> ${spark([7,9,8,12,13,11,15])}</td><td>${s.updated}</td></tr>`).join('')}</tbody></table></div>`; }
@@ -163,21 +327,14 @@
     return {action,reason,demand,capacity,expected,residual,margin:capacity-demand,risk:Math.max(4,Math.min(99,Math.round((demand/capacity)*65+(100-c.tank)*.25+(c.leak==='high'?20:0))))};
   }
 
-  function overview(){ const s=site(); return pageHead('▥','Data Center Network Overview','Real-time view of all sites, water risk, and operational status',`<button class="btn" data-page="cases">Open Alerts</button><button class="btn primary" data-page="scheduler">Open Scheduler</button>`)+
-    `<div class="network-grid">${card('Site Network Map','Select a marker to change dashboard context',mapHtml())}${card('Site Directory','Live portfolio status',siteRows(),selectSite())}</div>
-    <div class="overview-modules">
-      ${card('☁ Weather Monitoring & Forecast',`${s.name} · next 24 hours`,`<div class="weather-row"><div class="weather-cell"><i>♨</i><b>32°C</b><span>Ambient</span></div><div class="weather-cell"><i>◉</i><b>78%</b><span>Humidity</span></div><div class="weather-cell"><i>♧</i><b>27°C</b><span>Wet-bulb</span></div><div class="dry-card"><b>${s.mode==='Dry Run'?'◇ Dry Run Active':'✓ Dry Run Eligible'}</b><small>Hybrid capability</small><button id="switch-dry">${s.mode==='Dry Run'?'Switch Back to Closed-Loop':'Switch to Dry Run'}</button></div></div>${lineChart([29,29,30,31,32,31,32,33,32,31,30,29],[24,24,24,25,26,27,27,27,26,26,25,25],'Ambient °C','Wet-bulb °C')}`,selectSite())}
-      ${card('⌁ Live Condition Monitoring','Real-time operating metrics',`<div class="mini-kpis"><div class="mini-kpi"><span>IT Load</span><b>${s.load} MW</b><small>↓ 3%</small></div><div class="mini-kpi"><span>Cooling Load</span><b>28 MW</b><small>↑ 5%</small></div><div class="mini-kpi"><span>WUE</span><b>${s.wue}</b><small>↓ 12%</small></div><div class="mini-kpi"><span>Makeup Flow</span><b>${s.makeup} m³/h</b><small>↓ 8%</small></div><div class="mini-kpi"><span>Tank Level</span><b>${s.tank}%</b><small>↑ 2%</small></div><div class="mini-kpi"><span>Pressure</span><b>${s.pressure} kPa</b><small>Normal</small></div><div class="mini-kpi"><span>Supply Temp</span><b>${s.supply}°C</b><small>Normal</small></div><div class="mini-kpi"><span>Return Temp</span><b>${s.temp}°C</b><small>Watch</small></div><div class="mini-kpi"><span>Reclaimed</span><b>${s.reuse}%</b><small>Available</small></div></div>`,selectSite())}
-      ${card('◆ Leakage Monitoring','Camera + pressure + flow anomaly detection',`<div class="mini-kpis"><div class="mini-kpi"><span>Leak Sensors</span><b>24</b><small>Online</small></div><div class="mini-kpi"><span>Visual Detections</span><b>1</b><small class="down">Active</small></div><div class="mini-kpi"><span>Estimated Loss</span><b>18.6 L/min</b><small class="down">Moderate</small></div></div><div class="alert-strip">Pipe Joint CW-2: camera and pressure residual confirm active leakage.</div>${leakEvidence()}`,selectSite())}
-      ${card('♻ Loss & Reuse Monitoring','Water balance and circularity',`<div class="mini-kpis"><div class="mini-kpi"><span>Expected</span><b>480 m³/h</b><small>Forecast</small></div><div class="mini-kpi"><span>Actual</span><b>465 m³/h</b><small>↓ 3%</small></div><div class="mini-kpi"><span>Total Loss</span><b>18 m³/h</b><small class="down">3.9%</small></div></div><div class="reuse-layout">${donut(s.reuse,'465 m³/h')}<div class="reuse-detail"><b>Water Source Mix</b><span><i class="legend-dot teal"></i>Reclaimed ${s.reuse}%</span><span><i class="legend-dot blue"></i>Potable ${100-s.reuse}%</span><span>Evaporation <b>10.2 m³/h</b></span><span>Blowdown <b>5.6 m³/h</b></span></div></div><div class="reuse-footer"><span>Reclaimed-water usage ratio</span><b>${s.reuse}%　↑ 8%</b></div>`,selectSite())}
-    </div>
-    <div class="overview-bottom">${card('▣ Workload Scheduler','Water-aware workload orchestration',`<div class="recommend"><b>Recommendation</b><span>Move JOB-317 to Selangor DC1 for lower water risk.</span><button class="btn primary" data-page="scheduler">Review</button></div>${jobsTable(true)}`)}${card('⌁ Forecast Water Demand','24-hour demand vs safe capacity',lineChart([25,22,21,23,30,35,40,42,50,55,49,38],[45,45,45,45,45,45,45,45,45,45,45,45],'Demand','Safe capacity'))}${card('♣ Cases & Alerts','Actionable events',`<div class="table-wrap"><table><thead><tr><th>Severity</th><th>Site</th><th>Summary</th></tr></thead><tbody>${cases.slice(0,5).map(c=>`<tr data-case-select="${c.id}" data-page="cases"><td>${tag(c.severity,sevColor(c.severity))}</td><td>${c.site}</td><td>${c.summary}</td></tr>`).join('')}</tbody></table></div>`)}</div>`; }
+  function overview(){ return pageHead('▥','Data Center Network Overview','Real-time view of all sites, water risk, and operational status',`<button class="btn" data-page="cases">Open Alerts</button><button class="btn primary" data-page="scheduler">Open Scheduler</button>`)+
+    `<div class="overview-network">${card('Site Network Map','Select a marker to change dashboard context',mapHtml())}</div>`; }
 
   function sitesPage(){ const s=site(),hybrid=sites.filter(x=>x.capability==='Hybrid').length,dry=sites.filter(x=>x.mode==='Dry Run').length,closed=sites.filter(x=>x.mode==='Closed-Loop Cooling').length,avg=(sites.reduce((n,x)=>n+x.wue,0)/sites.length).toFixed(2); const tabBodies={
     overview:`<div class="grid2"><div><div class="site-image-wrap"><img class="site-photo site-photo-large" src="${siteImages[s.id]}" alt="Simulated operational view for ${s.name}"><span>SIMULATED OPERATIONS VIEW</span></div><p><b>Location:</b> ${s.location}</p><p><b>Coordinates:</b> ${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}</p><p><b>Cooling capability:</b> ${s.capability} · switchable</p><p><b>Current operating mode:</b> ${s.mode}</p><p><b>Water sources:</b> ${s.source}</p></div><div class="mini-kpis"><div class="mini-kpi"><span>WUE</span><b>${s.wue} L/kWh</b><small>↓ 12%</small></div><div class="mini-kpi"><span>Reuse Ratio</span><b>${s.reuse}%</b><small>↑ 5%</small></div><div class="mini-kpi"><span>Current Load</span><b>${s.load} MW</b><small>↑ 3%</small></div><div class="mini-kpi"><span>Total Demand</span><b>${s.makeup} m³/h</b><small>↓ 6%</small></div>${lineChart([42,41,43,42,40,35,40,42],[40,40,40,40,40,40,40,40],'WUE','Target')}</div></div>`,
     assets:`<div class="grid3">${['Cooling Tower CT-1B','Makeup Flow Meter FM-MU','Chiller CH-02','Condenser Pump CP-2','Tank Level LT-01','Leak Zone B'].map((x,i)=>`<div class="mini-kpi"><span>${x}</span><b>${i===5?'Watch':'Online'}</b><small>${i===5?'Inspection due':'Telemetry normal'}</small></div>`).join('')}</div>`,
     performance:`${lineChart([43,42,41,44,40,38,42,41,39,40,42,38],[48,47,47,46,45,44,43,42,42,41,40,40],'WUE actual','WUE target')}`,
-    water:`<div style="display:flex;gap:24px;align-items:center">${donut(s.reuse,s.reuse+'%')}<div><h3>Source allocation</h3><p>Reclaimed water: ${s.reuse}%</p><p>Potable water: ${100-s.reuse}%</p><p>Storage level: ${s.tank}%</p></div></div>`,
+    water:`<div class="source-allocation">${donut(s.reuse,s.reuse+'%')}<div><h3>Source allocation</h3><p>Reclaimed water: ${s.reuse}%</p><p>Potable water: ${100-s.reuse}%</p><p>Storage level: ${s.tank}%</p></div></div>`,
     cases:`<div class="table-wrap"><table><thead><tr><th>Case</th><th>Severity</th><th>Summary</th><th>Status</th></tr></thead><tbody>${cases.filter(c=>c.site===s.name).map(c=>`<tr><td>${c.id}</td><td>${tag(c.severity,sevColor(c.severity))}</td><td>${c.summary}</td><td>${tag(c.status,'blue')}</td></tr>`).join('')||'<tr><td colspan="4">No open cases for this site.</td></tr>'}</tbody></table></div>`,
     settings:`<div class="grid2"><div class="field"><label>Cooling capability</label><input class="input" value="${s.capability} · switchable" disabled></div><div class="field"><label>Current operating mode</label><select class="select" id="site-mode"><option ${s.mode==='Closed-Loop Cooling'?'selected':''}>Closed-Loop Cooling</option><option ${s.mode==='Dry Run'?'selected':''}>Dry Run</option></select></div><div class="field"><label>Local reserve minimum</label><input class="input" id="site-reserve" value="20%"></div></div><button class="btn primary" id="save-site-settings">Save Site Settings</button>`
   }; return pageHead('▥','Site Portfolio Overview','Manage and monitor all data center sites in your network',`<button class="btn" data-download="sites">Export Sites</button>`)+
@@ -196,21 +353,21 @@
   function analytics(){ return pageHead('▥','Analytics','Advanced trends to improve water efficiency, reduce risk, and optimize operations',`${selectSite()}<select class="select"><option>Last 30 Days</option><option>Last 7 Days</option></select><button class="btn primary" data-download="analytics">Export</button>`)+
     `<div class="analytics-kpis">${[['◆','Water Saved This Month','48,200 m³','↑ 18%'],['◉','Potable Water Avoided','65,400 m³','↑ 24%'],['♻','Average Reclaimed Ratio','68%','↑ 7%'],['✓','Water Risk Reduced','32%','↓ 32%'],['⚙','Scheduler Impact','28,400 m³','↑ 20%']].map(x=>`<div class="card hero-kpi"><i>${iconSvg(x[1])}</i><span>${x[1]}</span><b>${x[2]}</b><small class="up">${x[3]} vs previous month</small>${spark()}</div>`).join('')}</div>
     <div class="analytics-main">${card('WUE Trend (All Sites)','Lower is better',lineChart([55,53,50,49,46,48,45,44,43,42,44,42],[40,40,40,40,40,40,40,40,40,40,40,40],'WUE actual','Target'))}${card('Water Demand vs Safe Capacity','Daily demand compared to capacity',lineChart([28,32,30,35,40,44,47,53,49,55,48,44],[62,62,62,62,62,62,62,62,62,62,62,62],'Demand','Safe capacity'))}${card('Site Comparison – Total Water Use','Reclaimed and potable breakdown',sites.map(x=>`<div class="bar-row"><b>${x.name}</b><div class="hbar"><i style="width:${x.makeup/250*100}%"></i></div><span>${x.makeup*250} m³</span></div>`).join(''))}</div>
-    <div class="analytics-sub">${card('Current Cooling Mode Utilization','All sites are Hybrid-capable; this chart shows the active mode',`<div style="display:flex;align-items:center;gap:15px">${donut(50,'50%')}<div style="font-size:.6rem;line-height:2"><b>Hybrid capability: 100%</b><br>Closed-Loop Cooling: 50%<br>Dry Run: 50%</div></div>`)}${card('Workload Impact by Type','Water consumption by workload',[['AI Training',42],['Model Inference',26],['Batch Processing',18],['General Compute',10],['Data Storage',4]].map(x=>`<div class="bar-row"><span>${x[0]}</span><div class="hbar"><i style="width:${x[1]*2}%"></i></div><b>${x[1]}%</b></div>`).join(''))}${card('Water Stress vs Water Demand by Site','Portfolio risk distribution',`<div style="height:190px;position:relative;background:linear-gradient(#fff,#f4fafc);border-left:1px solid #ccdfe7;border-bottom:1px solid #ccdfe7">${sites.map((s,i)=>`<button data-site="${s.id}" style="position:absolute;left:${18+i*20}%;bottom:${20+s.load}px;border:0;background:${riskColor(s.risk)==='amber'?'#f2a000':'#0ba98b'};color:white;border-radius:50%;width:${28+s.load/3}px;height:${28+s.load/3}px;font-size:.48rem">${s.name.replace(' DC1','')}</button>`).join('')}</div>`)}${card('Top Insights','Prioritized operational findings',`<div class="insight"><i>♻</i><span>Reclaimed-water usage rose 9 percentage points across all sites.</span></div><div class="insight"><i>▥</i><span>Johor achieved 24% lower WUE after scheduler optimization.</span></div><div class="insight"><i>✓</i><span>Penang remains the highest regional water-risk site.</span></div>`)}</div>${card('Site Comparison – Key Water Analytics','Performance and optimization impact by site',siteRows())}`; }
+    <div class="analytics-sub">${card('Current Cooling Mode Utilization','All sites are Hybrid-capable; this chart shows the active mode',`<div style="display:flex;align-items:center;gap:15px">${donut(50,'50%')}<div style="font-size:.6rem;line-height:2"><b>Hybrid capability: 100%</b><br>Closed-Loop Cooling: 50%<br>Dry Run: 50%</div></div>`)}${card('Workload Impact by Type','Water consumption by workload',[['AI Training',42],['Model Inference',26],['Batch Processing',18],['General Compute',10],['Data Storage',4]].map(x=>`<div class="bar-row"><span>${x[0]}</span><div class="hbar"><i style="width:${x[1]*2}%"></i></div><b>${x[1]}%</b></div>`).join(''))}${card('Water Stress vs Water Demand by Site','Portfolio risk distribution',`<div style="height:190px;position:relative;background:linear-gradient(#fff,#f4fafc);border-left:1px solid #ccdfe7;border-bottom:1px solid #ccdfe7">${sites.map((s,i)=>`<button data-site="${s.id}" style="position:absolute;left:${10+i*80/(sites.length-1)}%;bottom:${20+s.load}px;border:0;background:${riskColor(s.risk)==='amber'?'#f2a000':'#0ba98b'};color:white;border-radius:50%;width:${28+s.load/3}px;height:${28+s.load/3}px;font-size:.48rem">${s.name.replace(' DC1','')}</button>`).join('')}</div>`)}${card('Top Insights','Prioritized operational findings',`<div class="insight"><i>♻</i><span>Reclaimed-water usage rose 9 percentage points across all sites.</span></div><div class="insight"><i>▥</i><span>Johor achieved 24% lower WUE after scheduler optimization.</span></div><div class="insight"><i>✓</i><span>Penang remains the highest regional water-risk site.</span></div>`)}</div>${card('Site Comparison – Key Water Analytics','Performance and optimization impact by site',siteRows())}`; }
 
   function simControls(){ const c=state.sim, control=(label,key,min,max,step=1)=>`<div class="sim-control"><label>${label}<b>${c[key]}${key==='temp'?'°C':key==='tank'||key==='reuse'?'%':''}</b></label><input type="range" min="${min}" max="${max}" step="${step}" value="${c[key]}" data-sim="${key}"></div>`; return `<div class="sim-grid"><div class="sim-control"><label>Workload</label><select data-sim="job">${Object.entries(jobs).map(([k,j])=>`<option value="${k}" ${c.job===k?'selected':''}>${j.id} · ${j.type}</option>`).join('')}</select></div>${control('Ambient temperature','temp',24,46)}${control('Tank level','tank',10,100)}${control('Reclaimed water','reuse',0,100)}${control('Makeup meter','makeup',4000,9000,50)}<div class="sim-control"><label>Community state</label><select data-sim="community">${['normal','watch','restriction','emergency'].map(x=>`<option ${c.community===x?'selected':''}>${x}</option>`).join('')}</select></div><div class="sim-control"><label>Leak signal</label><select data-sim="leak">${['none','watch','high'].map(x=>`<option ${c.leak===x?'selected':''}>${x}</option>`).join('')}</select></div><div class="sim-control"><label>Safe alternative</label><select data-sim="alt"><option value="true" ${c.alt?'selected':''}>Available</option><option value="false" ${!c.alt?'selected':''}>Unavailable</option></select></div></div>`; }
   function scheduler(){ const r=evaluate(state.sim), job=jobs[state.sim.job]; return pageHead('▣','Scheduler','Water-aware workload orchestration with policy constraints',`<button class="btn" data-case-tab="tests" data-page="cases">Open Test Lab</button><button class="btn primary" id="run-optimizer">Run Optimizer</button>`)+
     `<div class="kpi-strip">${kpi('▤','Jobs Queued','48','↑ 12% vs last 24h','down')}${kpi('▣','Jobs Scheduled','220','↑ 8%')}${kpi('⇆','Moves Recommended','14','↑ 27%')}${kpi('◷','Delays Recommended','8','↑ 33%','down')}${kpi('◆','Water Impact Avoided','465 m³','↑ 42%')}</div>
     <div class="scheduler-top"><section class="card recommendation"><h2>★ Top Recommendation</h2><h3>Move JOB-317 from Johor DC1 to Selangor DC1</h3><p>Selangor has lower water risk and available capacity. Estimated 28 m³ water savings with no SLA impact.</p><div class="move-flow"><div class="site-box"><b>Johor DC1</b><small>Medium water risk</small></div><div class="arrow-big">⇢</div><div class="site-box target"><b>Selangor DC1</b><small>Low water risk</small></div></div><div style="text-align:right;margin-top:9px"><button class="btn primary" data-apply-job="training">Apply Recommendation</button> <button class="btn" data-job="training">View Details</button></div></section>
-    ${card('⚙ Scheduler Rules & Constraints','Active decision policies',`<div class="rule-list">${[['◷','SLA Requirements','Business critical ≤ 4h delay'],['◆','Water Capacity','Do not exceed 85% forecast capacity'],['♣','Community Reserve','Maintain ≥ 15% reserve'],['⚠','Leak Condition','Avoid sites with active leaks'],['♻','Reclaimed-water Policy','Prioritize ≥ 60% reuse']].map(x=>`<div class="rule"><span class="rule-icon">${x[0]}</span><b>${x[1]}</b><span>${x[2]}</span>${tag('● Active','green')}</div>`).join('')}</div>`,`<button class="btn" data-page="settings">Edit Rules</button>`)}</div>
+    ${card('⚙ Scheduler Rules & Constraints','Active decision policies',`<div class="rule-list">${[['◷','SLA Requirements','Business critical ≤ 4h delay'],['◆','Water Capacity','Do not exceed 85% forecast capacity'],['♣','Community Reserve','Maintain ≥ 15% reserve'],['⚠','Leak Condition','Avoid sites with active leaks'],['♻','Reclaimed-water Policy','Prioritize ≥ 60% reuse']].map((x,i)=>`<div class="rule"><span class="rule-icon">${iconSvg(['schedule','water','water','alert','reuse'][i])}</span><b>${x[1]}</b><span>${x[2]}</span>${tag('● Active','green')}</div>`).join('')}</div>`,`<button class="btn" data-page="settings">Edit Rules</button>`)}</div>
     <section class="card gap"><div class="card-head"><div><h2>Simulation Workbench</h2><p>Change conditions to see the scheduler decision update immediately.</p></div></div><div class="card-body"><div class="grid2"><div>${simControls()}</div><div class="decision"><span>RECOMMENDED ACTION</span><h2>${r.action}</h2><p>${r.reason}</p><div class="decision-kpis"><div><span>Demand</span><b>${r.demand} m³</b></div><div><span>Capacity</span><b>${r.capacity} m³</b></div><div><span>Risk Score</span><b>${r.risk}/100</b></div></div><div style="margin-top:10px"><button class="btn primary" data-apply-job="${state.sim.job}">Apply ${r.action}</button></div></div></div></div></section>
     ${card('Workload Queue & Recommendations','Click a row to load the workload into the simulator',jobsTable())}
     <div class="scheduler-bottom">${card('Schedule Timeline (Next 24 Hours)','',`<div class="timeline">${sites.map((s,i)=>`<div class="timeline-label">${s.name}</div><div class="timeline-track"><span class="job-block" style="left:${8+i*9}%;width:${17+i*2}%;background:${['#7759dd','#12a87f','#ec9c13','#087fda'][i]}">JOB-${317+i}</span><span class="job-block" style="left:${55-i*5}%;width:22%;background:${['#ef5d68','#e89d13','#7456de','#2a9dde'][i]}">JOB-${325+i}</span></div>`).join('')}</div>`)}${card('Forecast Water Capacity','Scheduled workloads included',lineChart([20,17,15,19,21,24,25,27,30,38,35,30],[42,42,42,42,42,42,42,42,42,42,42,42],'Demand','Safe limit'))}${card('Action Summary','',`<div class="action-summary"><b>✓</b><span>Run Now</span><b>12</b></div><div class="action-summary"><b>◷</b><span>Delay</span><b>8</b></div><div class="action-summary"><b>⇆</b><span>Move Site</span><b>14</b></div><div class="action-summary"><b>▥</b><span>Limit Load</span><b>6</b></div><div class="action-summary"><b>⚠</b><span>Escalate</span><b>3</b></div>`)}</div>`; }
 
   const reportNames=['Daily Operations Report','Weekly Water Risk Review','Reuse Performance Report','Leak & Loss Summary','Scheduler Impact Report'];
   function reports(){ return pageHead('▤','Reports','Generate, view, and export water, risk, and operations reports',`${selectSite()}<select class="select"><option>Last 30 Days</option><option>Today</option></select><button class="btn primary" id="generate-report">Generate Report</button>`)+
-    `<div class="kpi-strip" style="grid-template-columns:repeat(4,1fr)">${kpi('▤','Reports Generated','28','↑ 12%')}${kpi('▣','Scheduled Reports','6','No change')}${kpi('◷','Pending Approval','3','↑ 50%','down')}${kpi('⇩','Last Export','Today 14:32','Weekly Water Risk Review')}</div>
-    <div class="report-layout"><section class="card"><div class="card-head"><div><h2>Report Library</h2><p>Select a report template</p></div></div><div class="card-body">${reportNames.map((r,i)=>`<button class="report-item ${state.report===r?'active':''}" data-report="${r}" style="width:100%;text-align:left;background:${state.report===r?'#edf8fd':'white'}"><i>${['▤','▥','♻','◆','▣'][i]}</i><span><b>${r}</b><span>${['Operational summary of water use and events.','Site risk trends and forecast recommendations.','Recovery rates and sustainability metrics.','Detected leaks, losses, and resolution status.','Scheduling impact on water and performance.'][i]}</span></span><b>›</b></button>`).join('')}</div></section>
+    `<div class="kpi-strip four">${kpi('▤','Reports Generated','28','↑ 12%')}${kpi('▣','Scheduled Reports','6','No change')}${kpi('◷','Pending Approval','3','↑ 50%','down')}${kpi('⇩','Last Export','Today 14:32','Weekly Water Risk Review')}</div>
+    <div class="report-layout"><section class="card"><div class="card-head"><div><h2>Report Library</h2><p>Select a report template</p></div></div><div class="card-body">${reportNames.map((r,i)=>`<button class="report-item ${state.report===r?'active':''}" data-report="${r}" style="width:100%;text-align:left;background:${state.report===r?'#edf8fd':'white'}"><i>${iconSvg(['report','analytics','reuse','alert','scheduler'][i])}</i><span><b>${r}</b><span>${['Operational summary of water use and events.','Site risk trends and forecast recommendations.','Recovery rates and sustainability metrics.','Detected leaks, losses, and resolution status.','Scheduling impact on water and performance.'][i]}</span></span><b>›</b></button>`).join('')}</div></section>
     <section class="card"><div class="card-head"><div><h2>Report Preview: ${state.report}</h2><p>Reporting period · Current operational window${state.reportGeneratedAt?` · Generated ${state.reportGeneratedAt}`:''}</p></div><button class="btn primary" data-download="report">Export Report</button></div><div class="card-body report-preview"><div class="cover"><div><b style="color:#087fda">AQUASHIFT</b><h2>${state.report}</h2><p>Water-Aware Data Center Operations</p></div><div><b>All Sites</b><br><small>Generated for operations leadership</small></div></div><div><div class="preview-grid">${kpi('◆','Total Water Use','465 m³/h','↓ 8%')}${kpi('♻','Reuse Rate','76%','↑ 5%')}${kpi('⚠','Active Alerts','3','↑ 1','down')}${kpi('✓','System Uptime','98%','Stable')}</div>${card('Water Use Trend','',lineChart([43,42,41,40,42,46,50,49,55,58,52,48],[28,27,27,26,28,32,36,35,42,45,40,35],'Total use','Reclaimed'))}</div></div></section></div>
     <div class="audit-grid">${card('Report Schedule','Automated delivery and recipients',`<div class="table-wrap"><table><thead><tr><th>Report</th><th>Frequency</th><th>Recipients</th><th>Next Run</th><th>Status</th></tr></thead><tbody>${reportNames.map((x,i)=>`<tr><td>${x}</td><td>${['Daily 08:00','Weekly Monday','Monthly 1st','Weekly Friday','Monthly 15th'][i]}</td><td>Ops Team</td><td>Upcoming</td><td>${tag(i===4?'Paused':'Active',i===4?'gray':'green')}</td></tr>`).join('')}</tbody></table></div>`)}${card('Recent Reports & Audit Trail','History of generated reports and exports',`<div class="table-wrap"><table><thead><tr><th>Generated</th><th>Report</th><th>Site(s)</th><th>Format</th><th>Status</th></tr></thead><tbody>${reportNames.map((x,i)=>`<tr><td>Today ${14-i}:32</td><td>${x}</td><td>${i%2?'Johor DC1':'All Sites'}</td><td>${tag(i%2?'CSV':'PDF',i%2?'green':'red')}</td><td>${tag('Completed','green')}</td></tr>`).join('')}</tbody></table></div>`)}</div>`; }
 
@@ -234,7 +391,16 @@
   function policy(icon,title,desc,key,value,type,options=[]){ return `<section class="card policy"><h3>${icon} ${title}</h3><p>${desc}</p><div class="field"><label>${title}</label>${type==='select'?`<select data-setting="${key}">${options.map(x=>`<option ${x===value?'selected':''}>${x}</option>`).join('')}</select>`:`<input data-setting="${key}" type="${type}" value="${value}" step="0.05">`}</div><p><span class="toggle on"></span> Policy active</p></section>`; }
 
   const pages={overview,sites:sitesPage,monitoring,analytics,scheduler,reports,cases:casesPage,settings};
-  function render(preserveScroll=false){ const previousScroll=window.scrollY; $('#primary-nav').innerHTML=NAV.map(n=>`<button class="nav-btn ${state.page===n[0]?'active':''}" data-page="${n[0]}"><i>${iconSvg(n[2])}</i>${n[2]}</button>`).join(''); app.innerHTML=(pages[state.page]||overview)()+evidenceModal(); bind(); if(preserveScroll)requestAnimationFrame(()=>window.scrollTo(0,previousScroll));else window.scrollTo({top:0,behavior:'instant'}); }
+  function render(preserveScroll=false){
+    const previousScroll=window.scrollY,nav=$('#primary-nav');
+    nav.innerHTML=NAV.map(n=>`<button class="nav-btn ${state.page===n[0]?'active':''}" data-page="${n[0]}" aria-label="${n[2]}" ${state.page===n[0]?'aria-current="page"':''}><i>${iconSvg(n[2])}</i>${n[2]}</button>`).join('');
+    const active=nav.querySelector('[aria-current="page"]');
+    if(active&&nav.scrollWidth>nav.clientWidth)nav.scrollLeft=active.offsetLeft-(nav.clientWidth-active.offsetWidth)/2;
+    app.innerHTML=(pages[state.page]||overview)()+evidenceModal();
+    bind();
+    if(preserveScroll)requestAnimationFrame(()=>window.scrollTo(0,previousScroll));
+    else window.scrollTo({top:0,behavior:'instant'});
+  }
   async function pollExternalSimulation(){
     try{
       const response=await fetch('/api/simulation/latest',{cache:'no-store'});if(!response.ok)return;
@@ -268,6 +434,8 @@
     a.href=URL.createObjectURL(blob);a.download=`aquashift-${kind}-${new Date().toISOString().slice(0,10)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast(`${rows.length} data rows exported to ${a.download}`);
   }
   function bind(){
+    bindMapMarkers();
+    bindOverviewRotation();
     document.querySelectorAll('[data-page]').forEach(el=>el.addEventListener('click',()=>{state.page=el.dataset.page;if(el.dataset.caseTab)state.caseTab=el.dataset.caseTab;render()}));
     document.querySelectorAll('[data-site]').forEach(el=>el.addEventListener('click',()=>{state.site=el.dataset.site;render()}));
     document.querySelectorAll('[data-map-region]').forEach(el=>el.addEventListener('click',()=>{state.mapRegion=el.dataset.mapRegion;const region=state.mapRegion==='usa'?'Americas':state.mapRegion==='apac'?'Asia Pacific':null;if(region&&site().region!==region)state.site=sites.find(s=>s.region===region).id;render(true)}));

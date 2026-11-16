@@ -4,7 +4,7 @@ AQUASHIFT is a browser-based prototype for monitoring and simulating water-aware
 
 ## Prototype modules
 
-- Overview: regional map, live site directory, weather, operating condition, leak, loss and reuse cards
+- Overview: full-width regional map with zoom, drag, region filters, and site details that rotate every five seconds; interaction pauses rotation for fifteen seconds
 - Sites: portfolio KPIs, site cards, detailed profiles, assets, performance, water sources, and cases
 - Monitoring: weather forecast, Hybrid capability versus current operating mode, IoT-style leak camera evidence, water balance, trends, and event stream
 - Analytics: WUE and water-capacity trends, site comparisons, workload impact, and operational insights
