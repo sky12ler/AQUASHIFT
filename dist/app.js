@@ -110,7 +110,7 @@
   };
   const toast = msg => { const el=$('#toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('show'),2400); };
   const selectSite = (extra='') => `<select class="select site-select" ${extra}>${sites.map(s=>`<option value="${s.id}" ${s.id===state.site?'selected':''}>${s.name}</option>`).join('')}</select>`;
-  const pageHead = (icon,title,sub,tools='') => `<section class="page-head"><div class="page-heading"><span class="page-icon">${iconSvg(title)}</span><div><h1>${title}</h1><p>${sub}</p></div></div><div class="head-tools">${tools}</div></section>`;
+  const pageHead = (icon,title,sub,tools='',extraClass='') => `<section class="page-head${extraClass?' '+extraClass:''}"><div class="page-heading"><span class="page-icon">${iconSvg(title)}</span><div><h1>${title}</h1><p>${sub}</p></div></div><div class="head-tools">${tools}</div></section>`;
   const card = (title,sub,body,tools='') => { const clean=title.replace(/^[^A-Za-z0-9]+/,''); return `<section class="card"><div class="card-head"><div><h2><span class="card-title-icon">${iconSvg(clean)}</span>${clean}</h2>${sub?`<p>${sub}</p>`:''}</div>${tools}</div><div class="card-body">${body}</div></section>`; };
   const kpi = (icon,label,value,delta='Live',tone='up') => `<div class="card kpi-card"><span class="kpi-icon">${iconSvg(label)}</span><div><span>${label}</span><b>${value}</b><small class="${tone}">${delta}</small></div></div>`;
   const spark = (vals=[8,12,10,15,13,20,17,25]) => { const max=Math.max(...vals), pts=vals.map((v,i)=>`${i*100/(vals.length-1)},${24-v/max*20}`).join(' '); return `<div class="spark"><svg viewBox="0 0 100 24" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="#079fc0" stroke-width="2"/></svg></div>`; };
@@ -131,17 +131,25 @@
       apac:{label:'Southeast Asia',minLon:99,maxLon:105,minLat:0,maxLat:6.5},
       usa:{label:'United States',minLon:-130,maxLon:-65,minLat:24,maxLat:50}
   };
-  const mapSelectionHtml=s=>`<b>${s.name}</b><span>${s.location}</span><code>${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}</code><small>${s.capability} capable · Current: ${s.mode}</small>`;
+  const mapSelectionHtml=s=>`<b>${s.name}</b><span>${s.location}</span><code>${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}</code>${state.page==='overview'?`<div class="map-site-metrics">${tag(s.risk+' water risk',riskColor(s.risk))}<span>WUE ${s.wue.toFixed(2)} L/kWh</span><span>Reclaimed water ${s.reuse}%</span><span>${s.mode}</span></div>`:`<small>${s.capability} capable · Current: ${s.mode}</small>`}`;
+  const mapLegendCounts=(rows,detailed=false)=>{
+    const online=rows.filter(s=>s.status==='Online').length;
+    return {network:`${online} online · ${rows.length-online} offline`,low:`● Low ${detailed?'':'water '}risk (${rows.filter(s=>s.risk==='Low').length})`,...(detailed?{medium:`● Medium risk (${rows.filter(s=>s.risk==='Medium').length})`,high:`● High risk (${rows.filter(s=>s.risk==='High').length})`}:{elevated:`● Elevated water risk (${rows.filter(s=>s.risk!=='Low').length})`})};
+  };
+  const overviewSummaryValues=()=>({online:`${sites.filter(s=>s.status==='Online').length} sites online`,high:`${sites.filter(s=>s.risk==='High').length} high-risk ${sites.filter(s=>s.risk==='High').length===1?'site':'sites'}`,medium:`${sites.filter(s=>s.risk==='Medium').length} medium-risk ${sites.filter(s=>s.risk==='Medium').length===1?'site':'sites'}`});
+  const overviewPrioritySite=()=>sites.filter(s=>s.risk!=='Low').sort((a,b)=>({High:2,Medium:1}[b.risk]||0)-({High:2,Medium:1}[a.risk]||0)||b.wue-a.wue)[0];
+  const overviewPriorityHtml=s=>`<span class="overview-priority-icon">${iconSvg(s?'alert':'water')}</span><div><b>${s?s.name.replace(/ DC\d+$/,'')+' needs attention':'All sites at low water risk'}</b><small>${s?s.risk+' water risk':'No elevated water risk reported'}</small></div>${s?`<button class="btn" data-review-site="${s.id}" aria-label="Review ${s.name}">Review site</button>`:''}`;
 
   function mapHtml(){
     const regions=MAP_REGIONS;
+    const detailed=state.page==='overview';
     const r=regions[state.mapRegion]||regions.global;
     const visible=sites.filter(s=>s.lon>=r.minLon&&s.lon<=r.maxLon&&s.lat>=r.minLat&&s.lat<=r.maxLat);
     const lonRange=r.maxLon-r.minLon,latRange=r.maxLat-r.minLat;
     const mapStyle=`--map-aspect:${2753/1396*lonRange/(2*latRange)};--map-size-x:${360/lonRange*100}%;--map-size-y:${180/latRange*100}%;--map-pos-x:${lonRange===360?0:(r.minLon+180)/(360-lonRange)*100}%;--map-pos-y:${latRange===180?0:(90-r.maxLat)/(180-latRange)*100}%`;
-    const nodes=visible.map(s=>{const left=(s.lon-r.minLon)/lonRange*100,top=(r.maxLat-s.lat)/latRange*100;return `<button class="map-node global-node ${s.id} ${left>65?'label-left':''} ${s.id===state.site?'active':''} ${s.risk!=='Low'?'warn':''}" style="left:${left}%;top:${top}%" data-site="${s.id}" aria-label="Select ${s.name}, ${s.risk.toLowerCase()} water risk" aria-pressed="${s.id===state.site}" title="${s.name} · ${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}"><i></i><span>${s.name}</span></button>`}).join('');
+    const nodes=visible.map(s=>{const left=(s.lon-r.minLon)/lonRange*100,top=(r.maxLat-s.lat)/latRange*100;return `<button class="map-node global-node ${s.id} ${left>65?'label-left':''} ${s.id===state.site?'active':''} ${s.risk==='High'&&detailed?'high-risk':s.risk!=='Low'?'warn':''}" style="left:${left}%;top:${top}%" data-site="${s.id}" aria-label="Select ${s.name}, ${s.risk.toLowerCase()} water risk" aria-pressed="${s.id===state.site}" title="${s.name} · ${s.risk} water risk · ${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}"><i></i><span>${s.name}</span></button>`}).join('');
     const selected=site();
-    const online=visible.filter(s=>s.status==='Online').length;
+    const legendClasses={network:'network-availability',low:'low-risk-key',medium:'watch-key',high:'high-risk-key',elevated:'watch-key'};
     return `<div class="map-shell">
       <div class="map-toolbar"><div class="map-region-tabs">${Object.entries(regions).map(([key,value])=>`<button class="map-region-btn ${state.mapRegion===key?'active':''}" data-map-region="${key}" aria-pressed="${state.mapRegion===key}">${value.label}</button>`).join('')}</div>
         <div class="map-zoom-controls" role="group" aria-label="Map zoom controls">
@@ -156,9 +164,7 @@
         <div class="map-credit"><a href="https://commons.wikimedia.org/wiki/File:BlankMap-World-Equirectangular.svg" target="_blank" rel="noreferrer">Map CC0</a></div>
       </div>
       <div class="map-legend" aria-label="Site availability and water risk">
-        <span class="network-availability" data-map-stat="network">${online} online · ${visible.length-online} offline</span>
-        <span class="low-risk-key" data-map-stat="low">● Low water risk (${visible.filter(s=>s.risk==='Low').length})</span>
-        <span class="watch-key" data-map-stat="elevated">● Elevated water risk (${visible.filter(s=>s.risk!=='Low').length})</span>
+        ${Object.entries(mapLegendCounts(visible,detailed)).map(([key,value])=>`<span class="${legendClasses[key]}" data-map-stat="${key}">${value}</span>`).join('')}
       </div>
       <div class="map-selection" tabindex="-1" aria-live="polite">${mapSelectionHtml(selected)}</div>
     </div>`;
@@ -248,6 +254,15 @@
     const root=document.querySelector('.overview-network');
     if(state.page!=='overview'||!root)return;
     let nextRotation=Date.now()+5000;
+    root.addEventListener('click',event=>{
+      const button=event.target.closest('[data-review-site]');
+      if(!button)return;
+      const target=sites.find(s=>s.id===button.dataset.reviewSite);
+      if(!target)return;
+      state.site=target.id;state.siteTab='overview';state.page='sites';
+      state.mapRegion=target.region==='Americas'?'usa':'apac';
+      render();
+    });
     const interact=()=>{
       overviewInteractionUntil=Date.now()+15000;
       clearTimeout(overviewFadeTimer);
@@ -257,8 +272,7 @@
     root.addEventListener('pointermove',event=>{if(event.buttons)interact();},{passive:true});
     const regionSites=()=>[...root.querySelectorAll('.global-node')].map(node=>sites.find(s=>s.id===node.dataset.site));
     const updateStatus=()=>{
-      const visible=regionSites(),online=visible.filter(s=>s.status==='Online').length;
-      const counts={network:`${online} online · ${visible.length-online} offline`,low:`● Low water risk (${visible.filter(s=>s.risk==='Low').length})`,elevated:`● Elevated water risk (${visible.filter(s=>s.risk!=='Low').length})`};
+      const visible=regionSites(),counts=mapLegendCounts(visible,true);
       Object.entries(counts).forEach(([key,value])=>{
         const el=root.querySelector(`[data-map-stat="${key}"]`);
         if(overviewStatusSnapshot?.region===state.mapRegion&&overviewStatusSnapshot[key]!==value){
@@ -267,11 +281,24 @@
         if(el.textContent!==value)el.textContent=value;
       });
       overviewStatusSnapshot={region:state.mapRegion,...counts};
+      Object.entries(overviewSummaryValues()).forEach(([key,value])=>{
+        const el=document.querySelector(`[data-overview-summary="${key}"]`);
+        if(el&&el.textContent!==value)el.textContent=value;
+      });
+      const priority=overviewPrioritySite(),priorityEl=root.querySelector('[data-overview-priority]');
+      const priorityKey=priority?`${priority.id}|${priority.name}|${priority.risk}`:'clear';
+      priorityEl.dataset.risk=priority?.risk||'Low';
+      if(priorityEl.dataset.priorityKey!==priorityKey){
+        priorityEl.innerHTML=overviewPriorityHtml(priority);priorityEl.dataset.priorityKey=priorityKey;
+      }
       root.querySelectorAll('.global-node').forEach(node=>{
         const s=visible.find(s=>s.id===node.dataset.site);
-        node.classList.toggle('warn',s.risk!=='Low');
+        node.classList.toggle('warn',s.risk==='Medium');node.classList.toggle('high-risk',s.risk==='High');
         node.setAttribute('aria-label',`Select ${s.name}, ${s.risk.toLowerCase()} water risk`);
+        node.title=`${s.name} · ${s.risk} water risk · ${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}`;
       });
+      const selection=root.querySelector('.map-selection'),selectionHtml=mapSelectionHtml(site());
+      if(!selection.classList.contains('is-changing')&&selection.innerHTML!==selectionHtml)selection.innerHTML=selectionHtml;
     };
     const rotate=()=>{
       const visible=regionSites(),index=visible.findIndex(s=>s.id===state.site),next=visible[(index+1)%visible.length];
@@ -327,8 +354,12 @@
     return {action,reason,demand,capacity,expected,residual,margin:capacity-demand,risk:Math.max(4,Math.min(99,Math.round((demand/capacity)*65+(100-c.tank)*.25+(c.leak==='high'?20:0))))};
   }
 
-  function overview(){ return pageHead('▥','Data Center Network Overview','Real-time view of all sites, water risk, and operational status',`<button class="btn" data-page="cases">Open Alerts</button><button class="btn primary" data-page="scheduler">Open Scheduler</button>`)+
-    `<div class="overview-network">${card('Site Network Map','Select a marker to change dashboard context',mapHtml())}</div>`; }
+  function overview(){
+    const summary=`<span class="overview-summary" aria-label="Network health and water risk">${Object.entries(overviewSummaryValues()).map(([key,value])=>`<span class="summary-${key}" data-overview-summary="${key}">${value}</span>`).join('')}</span>`;
+    const priority=overviewPrioritySite();
+    return pageHead('▥','Data Center Network Overview',summary,`<button class="btn" data-page="cases">Open Alerts</button><button class="btn primary" data-page="scheduler">Open Scheduler</button>`)+
+      `<div class="overview-network">${card('Site Network Map','Select a marker to view site details',mapHtml(),`<div class="overview-priority" data-overview-priority data-risk="${priority?.risk||'Low'}">${overviewPriorityHtml(priority)}</div>`)}</div>`;
+  }
 
   function sitesPage(){ const s=site(),hybrid=sites.filter(x=>x.capability==='Hybrid').length,dry=sites.filter(x=>x.mode==='Dry Run').length,closed=sites.filter(x=>x.mode==='Closed-Loop Cooling').length,avg=(sites.reduce((n,x)=>n+x.wue,0)/sites.length).toFixed(2); const tabBodies={
     overview:`<div class="grid2"><div><div class="site-image-wrap"><img class="site-photo site-photo-large" src="${siteImages[s.id]}" alt="Simulated operational view for ${s.name}"><span>SIMULATED OPERATIONS VIEW</span></div><p><b>Location:</b> ${s.location}</p><p><b>Coordinates:</b> ${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}</p><p><b>Cooling capability:</b> ${s.capability} · switchable</p><p><b>Current operating mode:</b> ${s.mode}</p><p><b>Water sources:</b> ${s.source}</p></div><div class="mini-kpis"><div class="mini-kpi"><span>WUE</span><b>${s.wue} L/kWh</b><small>↓ 12%</small></div><div class="mini-kpi"><span>Reuse Ratio</span><b>${s.reuse}%</b><small>↑ 5%</small></div><div class="mini-kpi"><span>Current Load</span><b>${s.load} MW</b><small>↑ 3%</small></div><div class="mini-kpi"><span>Total Demand</span><b>${s.makeup} m³/h</b><small>↓ 6%</small></div>${lineChart([42,41,43,42,40,35,40,42],[40,40,40,40,40,40,40,40],'WUE','Target')}</div></div>`,

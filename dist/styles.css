@@ -81,6 +81,31 @@ main,.card-body,.page-heading,.page-heading>div,.card-head>div,.report-preview>d
 
 /* The Overview map owns the entire content row. Other map instances stay compact. */
 .overview-network{width:100%}
+.overview-summary{display:inline-flex;flex-wrap:wrap;gap:4px 16px;font-size:.75rem;font-weight:700;line-height:1.5;color:var(--text)}
+.overview-summary>span{display:inline-flex;align-items:center;gap:6px}
+.overview-summary>span:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--summary-color);flex-shrink:0}
+.summary-online{--summary-color:var(--green)}
+.summary-high{--summary-color:var(--red)}
+.summary-medium{--summary-color:var(--amber)}
+.overview-network>.card>.card-head{padding-block:7px}
+.overview-priority{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;max-width:100%;padding:4px 10px;border:1px solid #f3cbd2;border-radius:6px;background:#fff1f3;color:#a3293b}
+.overview-priority>div{min-width:0;flex:1}
+.overview-priority b,.overview-priority small{display:block}
+.overview-priority b{font-size:.8rem}
+.overview-priority small{font-size:.68rem;margin-top:1px}
+.overview-priority .btn{background:white;color:var(--blue);border-color:#b6d6ed;white-space:nowrap}
+.overview-priority-icon{display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px}
+.overview-priority-icon svg{display:block;width:24px;height:24px}
+.overview-priority[data-risk=Medium]{background:#fff8e8;border-color:#efd9a3;color:#956000}
+.overview-priority[data-risk=Low]{background:#edf9f0;border-color:#bde5c8;color:#087439}
+.overview-network .global-node{--pin-color:var(--green)}
+.overview-network .global-node.warn{--pin-color:var(--amber)}
+.overview-network .global-node.high-risk{--pin-color:var(--red)}
+.overview-network .global-node i{background:var(--pin-color);color:var(--pin-color);box-shadow:0 0 0 2px var(--pin-color)}
+.overview-network .global-node.active i{box-shadow:0 0 0 3px var(--navy),0 0 0 7px rgba(8,127,218,.2)}
+.high-risk-key{color:#b42636}
+.map-site-metrics{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:5px 14px;min-width:0;font-size:.7rem}
+.map-site-metrics>span:not(.tag){color:#345d75}
 .overview-network .global-map{height:max(360px,calc(100vh - 380px));height:max(360px,calc(100dvh - 380px))}
 .map-surface{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:100%;aspect-ratio:var(--map-aspect)}
 .map-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;min-width:0}
@@ -107,6 +132,8 @@ main,.card-body,.page-heading,.page-heading>div,.card-head>div,.report-preview>d
 .map-title{max-width:calc(100% - 95px)}
 .map-selection{grid-template-columns:minmax(0,auto) minmax(0,1fr) auto}
 .map-selection>*{min-width:0;overflow-wrap:anywhere}
+.map-site-metrics{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;font-size:.7rem}
+.map-site-metrics>span{white-space:nowrap}
 .map-selection{transition:opacity 150ms ease}
 .map-selection.is-changing{opacity:0}
 .global-node i{position:relative;color:var(--green)}
@@ -174,6 +201,7 @@ main,.card-body,.page-heading,.page-heading>div,.card-head>div,.report-preview>d
 }
 
 @media(max-width:600px){
+  .overview-priority{flex:1 1 100%}
   .topbar{height:auto;min-height:64px;position:relative;padding:10px 12px;gap:10px;flex-wrap:wrap}
   .brand{flex-shrink:0}
   .product{flex:1}
